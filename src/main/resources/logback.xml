@@ -7,7 +7,7 @@
     </encoder>
   </appender>
 
-  <logger name="templatecontrol" level="DEBUG"/>
+  <logger name="templatecontrol" level="INFO"/>
 
   <root level="INFO">
     <appender-ref ref="STDOUT" />

@@ -7,6 +7,8 @@ import com.typesafe.config.ConfigFactory
 
 object TemplateControl {
 
+  private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
+
   def main(args: Array[String]): Unit = {
     val fg = new FinderGenerator
     val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
@@ -39,21 +41,27 @@ object TemplateControl {
       gitRepo.fetch()
 
       // For each branch in the template ("2.5.x")
-      config.branchConfigs.foreach { bc =>
-        branchControl(bc.name, gitRepo) { () =>
-          val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
-          findAndReplace()
 
-          val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
-          sb ++= "\n"
-          bc.finders.foreach { finder =>
-            sb ++= s"  File-Pattern: ${finder.pattern}\n"
-            finder.conversions.foreach { case (k, v) =>
-              sb ++= s"    If-Found-In-Line: $k\n"
-              sb ++= s"      Replace-Line-With: $v\n"
+      config.branchConfigs.foreach { bc =>
+        try {
+          branchControl(bc.name, gitRepo) { () =>
+            val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
+            findAndReplace()
+
+            val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
+            sb ++= "\n"
+            bc.finders.foreach { finder =>
+              sb ++= s"  File-Pattern: ${finder.pattern}\n"
+              finder.conversions.foreach { case (k, v) =>
+                sb ++= s"    If-Found-In-Line: $k\n"
+                sb ++= s"      Replace-Line-With: $v\n"
+              }
             }
+            sb.toString
           }
-          sb.toString
+        } catch {
+          case e: Exception =>
+            logger.error(s"Cannot update branch $bc", e)
         }
       }
 
