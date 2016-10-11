@@ -26,6 +26,7 @@ object TemplateControl {
 
     // For each project ("play-streaming-java")
     config.templates.foreach { templateName =>
+      logger.info(s"Cloning template $templateName")
 
       // Set up a working directory called "templates/play-streaming-java"
       val templateDir = config.baseDirectory / templateName
@@ -43,6 +44,7 @@ object TemplateControl {
       // For each branch in the template ("2.5.x")
 
       config.branchConfigs.foreach { bc =>
+        logger.info(s"In template $templateName, updating branch ${bc.name}")
         try {
           branchControl(bc.name, gitRepo) { () =>
             val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
@@ -61,7 +63,7 @@ object TemplateControl {
           }
         } catch {
           case e: Exception =>
-            logger.error(s"Cannot update branch $bc", e)
+            logger.error(s"Cannot update template $templateName, branch ${bc.name}", e)
         }
       }
 
