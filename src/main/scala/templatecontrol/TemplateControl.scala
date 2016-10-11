@@ -26,10 +26,43 @@ object TemplateControl {
 
     // For each project ("play-streaming-java")
     config.templates.foreach { templateName =>
-      logger.info(s"Cloning template $templateName")
-
       // Set up a working directory called "templates/play-streaming-java"
-      val templateDir = config.baseDirectory / templateName
+      try {
+        val templateDir = config.baseDirectory / templateName
+        templateControl(templateDir, templateName) { gitRepo =>
+          // For each branch in the template ("2.5.x")
+          config.branchConfigs.foreach { bc =>
+            logger.info(s"In template $templateName, updating branch ${bc.name}")
+            try {
+              branchControl(bc.name, gitRepo) { () =>
+                val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
+                findAndReplace()
+
+                val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
+                sb ++= "\n"
+                bc.finders.foreach { finder =>
+                  sb ++= s"  File-Pattern: ${finder.pattern}\n"
+                  finder.conversions.foreach { case (k, v) =>
+                    sb ++= s"    If-Found-In-Line: $k\n"
+                    sb ++= s"      Replace-Line-With: $v\n"
+                  }
+                }
+                sb.toString
+              }
+            } catch {
+              case e: Exception =>
+                logger.error(s"Cannot update template $templateName, branch ${bc.name}", e)
+            }
+          }
+        }
+      } catch {
+        case e: Exception =>
+          logger.error(s"Cannot clone template $templateName", e)
+      }
+    }
+
+    def templateControl(templateDir: File, templateName: String)(branchFunction: GitProject => Unit): Unit = {
+      logger.info(s"Cloning template $templateName into $templateDir")
 
       if (templateDir.exists) {
         throw new IllegalStateException(s"$templateDir already exists!")
@@ -37,38 +70,15 @@ object TemplateControl {
 
       // Clone a git repo for this template.
       val gitRepo = githubClient.clone(templateDir, templateName)
+      try {
+        // Make sure we have all the branches from remote.
+        gitRepo.fetch()
 
-      // Make sure we have all the branches from remote.
-      gitRepo.fetch()
-
-      // For each branch in the template ("2.5.x")
-
-      config.branchConfigs.foreach { bc =>
-        logger.info(s"In template $templateName, updating branch ${bc.name}")
-        try {
-          branchControl(bc.name, gitRepo) { () =>
-            val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
-            findAndReplace()
-
-            val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
-            sb ++= "\n"
-            bc.finders.foreach { finder =>
-              sb ++= s"  File-Pattern: ${finder.pattern}\n"
-              finder.conversions.foreach { case (k, v) =>
-                sb ++= s"    If-Found-In-Line: $k\n"
-                sb ++= s"      Replace-Line-With: $v\n"
-              }
-            }
-            sb.toString
-          }
-        } catch {
-          case e: Exception =>
-            logger.error(s"Cannot update template $templateName, branch ${bc.name}", e)
-        }
+        branchFunction(gitRepo)
+      } finally {
+        // close the repo to stop file descriptors from leaking.
+        gitRepo.close()
       }
-
-      // close the repo to stop file descriptors from leaking.
-      gitRepo.close()
     }
 
     def branchControl(branchName: String, gitRepo: GitProject)(replaceFunction: (() => String)): Unit = {
