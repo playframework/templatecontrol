@@ -5,22 +5,32 @@ import java.time.Instant
 import better.files._
 import com.typesafe.config.ConfigFactory
 
-object TemplateControl {
+class TemplateControl(config: TemplateControlConfig) {
+  val exampleCodeServiceHook = "https://example.lightbend.com/webhook"
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  def main(args: Array[String]): Unit = {
-    val fg = new FinderGenerator
-    val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
+  val fg = new FinderGenerator
 
-    val githubClient = {
-      val user = config.github.credentials.user
-      val oauthToken = config.github.credentials.oauthToken
-      val remote = config.github.remote
-      val upstream = config.github.upstream
-      new GithubClient(user, oauthToken, remote, upstream)
+  val githubClient = {
+    val user = config.github.credentials.user
+    val oauthToken = config.github.credentials.oauthToken
+    val remote = config.github.remote
+    val upstream = config.github.upstream
+    new GithubClient(user, oauthToken, remote, upstream)
+  }
+
+  def findHook(gitProject: GitProject, url: String): Boolean = {
+    gitProject.hooks.foreach { hook =>
+      hook.getConfig.get("url") match {
+        case url =>
+          return true
+      }
     }
+    false
+  }
 
+  def run(): Unit =  {
     // Delete the existing templates directory, if any.
     config.baseDirectory.delete(swallowIOExceptions = true)
 
@@ -30,8 +40,9 @@ object TemplateControl {
         // Set up a working directory called "templates/play-streaming-java"
         val templateDir = config.baseDirectory / templateName
         templateControl(templateDir, templateName) { gitProject =>
-          gitProject.hooks.foreach { hook =>
-            logger.info(s"$templateName has hook ${hook.getName}")
+
+          if (! findHook(gitProject, exampleCodeServiceHook)) {
+            logger.warn(s"Template $templateName does not contain $exampleCodeServiceHook!")
           }
 
           // For each branch in the template ("2.5.x")
@@ -64,62 +75,62 @@ object TemplateControl {
           logger.error(s"Cannot clone template $templateName", e)
       }
     }
+  }
 
-    def templateControl(templateDir: File, templateName: String)(branchFunction: GitProject => Unit): Unit = {
-      logger.info(s"Cloning template $templateName into $templateDir")
+  def templateControl(templateDir: File, templateName: String)(branchFunction: GitProject => Unit): Unit = {
+    logger.info(s"Cloning template $templateName into $templateDir")
 
-      if (templateDir.exists) {
-        throw new IllegalStateException(s"$templateDir already exists!")
-      }
-
-      // Clone a git repo for this template.
-      val gitRepo = githubClient.clone(templateDir, templateName)
-      try {
-        // Make sure we have all the branches from remote.
-        gitRepo.fetch()
-
-        branchFunction(gitRepo)
-      } finally {
-        // close the repo to stop file descriptors from leaking.
-        gitRepo.close()
-      }
+    if (templateDir.exists) {
+      throw new IllegalStateException(s"$templateDir already exists!")
     }
 
-    def branchControl(branchName: String, gitRepo: GitProject)(replaceFunction: (() => String)): Unit = {
-      // Create a local branch from the upstream template's branch.
-      // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
-      val localBranchName = s"templatecontrol-$branchName"
-      val startPoint = s"upstream/$branchName"
-      gitRepo.createBranch(localBranchName, startPoint)
+    // Clone a git repo for this template.
+    val gitRepo = githubClient.clone(templateDir, templateName)
+    try {
+      // Make sure we have all the branches from remote.
+      gitRepo.fetch()
 
-      // Checkout the branch we just created:
-      // "git checkout templatecontrol-2.5.x"
-      gitRepo.checkout(localBranchName)
+      branchFunction(gitRepo)
+    } finally {
+      // close the repo to stop file descriptors from leaking.
+      gitRepo.close()
+    }
+  }
 
-      val message = replaceFunction()
+  def branchControl(branchName: String, gitRepo: GitProject)(replaceFunction: (() => String)): Unit = {
+    // Create a local branch from the upstream template's branch.
+    // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
+    val localBranchName = s"templatecontrol-$branchName"
+    val startPoint = s"upstream/$branchName"
+    gitRepo.createBranch(localBranchName, startPoint)
 
-      // Did anything change?
-      if (!gitRepo.status().isClean) {
-        // If so, add the changes to the branch...
-        // "git add ."
-        gitRepo.add()
+    // Checkout the branch we just created:
+    // "git checkout templatecontrol-2.5.x"
+    gitRepo.checkout(localBranchName)
 
-        // Commit the added changes...
-        // "git commit -m $message"
-        gitRepo.commit(message)
+    val message = replaceFunction()
 
-        // Push this new branch to the remote repository
-        // "git push origin templatecontrol-2.5.x"
-        gitRepo.push(localBranchName)
+    // Did anything change?
+    if (!gitRepo.status().isClean) {
+      // If so, add the changes to the branch...
+      // "git add ."
+      gitRepo.add()
 
-        // And finally, create a pull request
-        // from the remote github project ("wsargent/play-streaming-java")
-        // to upstream github project ("playframework/play-streaming-java")
-        // "hub pull-request \
-        //   -h playframework/play-streaming-java:2.5.x \
-        //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
-        gitRepo.pullRequest(localBranchName, branchName, message)
-      }
+      // Commit the added changes...
+      // "git commit -m $message"
+      gitRepo.commit(message)
+
+      // Push this new branch to the remote repository
+      // "git push origin templatecontrol-2.5.x"
+      gitRepo.push(localBranchName)
+
+      // And finally, create a pull request
+      // from the remote github project ("wsargent/play-streaming-java")
+      // to upstream github project ("playframework/play-streaming-java")
+      // "hub pull-request \
+      //   -h playframework/play-streaming-java:2.5.x \
+      //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
+      gitRepo.pullRequest(localBranchName, branchName, message)
     }
   }
 
@@ -156,6 +167,15 @@ object TemplateControl {
         }
       }
     }
+  }
+}
+
+object TemplateControl {
+
+  def main(args: Array[String]): Unit = {
+    val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
+    val control = new TemplateControl(config)
+    control.run()
   }
 
 }
