@@ -26,15 +26,19 @@ object TemplateControl {
 
     // For each project ("play-streaming-java")
     config.templates.foreach { templateName =>
-      // Set up a working directory called "templates/play-streaming-java"
       try {
+        // Set up a working directory called "templates/play-streaming-java"
         val templateDir = config.baseDirectory / templateName
-        templateControl(templateDir, templateName) { gitRepo =>
+        templateControl(templateDir, templateName) { gitProject =>
+          gitProject.hooks.foreach { hook =>
+            logger.info(s"$templateName has hook ${hook.getName}")
+          }
+
           // For each branch in the template ("2.5.x")
           config.branchConfigs.foreach { bc =>
             logger.info(s"In template $templateName, updating branch ${bc.name}")
             try {
-              branchControl(bc.name, gitRepo) { () =>
+              branchControl(bc.name, gitProject) { () =>
                 val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
                 findAndReplace()
 

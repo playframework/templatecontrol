@@ -8,7 +8,7 @@ import org.eclipse.jgit.lib.{Ref, StoredConfig}
 import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.transport.OpenSshConfig.Host
 import org.eclipse.jgit.transport._
-import org.kohsuke.github.GHRepository
+import org.kohsuke.github.{GHEvent, GHHook, GHRepository}
 
 import scala.collection.JavaConverters._
 
@@ -35,10 +35,25 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
   // http://www.codeaffine.com/2014/12/09/jgit-authentication/
   // https://www.nuxeo.com/blog/jgit-example/
   // https://github.com/centic9/jgit-cookbook
+  // https://github.com/jenkinsci/github-plugin/blob/master/src/main/java/org/jenkinsci/plugins/github/webhook/WebhookManager.java
 
   private val upstreamUrl = upstream.gitHttpTransportUrl
 
   private val remoteUrl = remote.getSshUrl
+
+  def addExampleWebHook(): GHHook = {
+    val config = Map(
+      "url" -> "https://example.lightbend.com/webhook",
+      "content_type" -> "json",
+      "secret" -> "h0z6a<E;meeYPs:ptueB7Hg09RCbzPG9j;]j>SROKTeV=9>W5i_2BPsiIXzCjIQO"
+    )
+    val events = Set[GHEvent]()
+    upstream.createHook("example-webservice", config.asJava, events.asJava, true)
+  }
+
+  def hooks: Seq[GHHook] = {
+    upstream.getHooks.asScala
+  }
 
   def pullRequest(localBranchName: String, branchName: String, message: String): Unit = {
     val head = s"${remote.getOwnerName}:$localBranchName"
