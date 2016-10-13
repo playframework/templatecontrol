@@ -7,12 +7,7 @@ import com.typesafe.config.ConfigFactory
 
 class TemplateControl(config: TemplateControlConfig) {
 
-  // FIXME this should be described in configuration
-  private val exampleCodeServiceHook = "https://example.lightbend.com/webhook"
-
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
-
-  private val fg = new FinderGenerator
 
   private val githubClient: GithubClient = {
     val user = config.github.credentials.user
@@ -22,17 +17,15 @@ class TemplateControl(config: TemplateControlConfig) {
     new GithubClient(user, oauthToken, remote, upstream)
   }
 
-  def findHook(gitProject: GitProject, url: String): Boolean = {
-    gitProject.hooks.foreach { hook =>
-      hook.getConfig.get("url") match {
-        case url =>
-          return true
-      }
-    }
-    false
+  def findWebhook(gitProject: GitProject, webhook: Map[String, String]): Boolean = {
+    // XXX eventually we'll want complete search and insertion of missing webhooks...
+    val configKey = "url"
+    gitProject.hooks.exists(_.getConfig.get(configKey) == webhook(configKey))
   }
 
   def run(): Unit =  {
+    val webhook = config.github.webhook
+
     // Delete the existing templates directory, if any.
     config.baseDirectory.delete(swallowIOExceptions = true)
 
@@ -43,15 +36,16 @@ class TemplateControl(config: TemplateControlConfig) {
         val templateDir = config.baseDirectory / templateName
         templateControl(templateDir, templateName) { gitProject =>
 
-          if (! findHook(gitProject, exampleCodeServiceHook)) {
-            logger.warn(s"Template $templateName does not contain $exampleCodeServiceHook!")
+          if (! findWebhook(gitProject, webhook)) {
+            logger.warn(s"Template $templateName does not contain $webhook!")
           }
 
           // For each branch in the template ("2.5.x")
           config.branchConfigs.foreach { branchConfig =>
             logger.info(s"In template $templateName, updating branch ${branchConfig.name}")
             try {
-              branchControl(branchConfig, gitProject) { finders =>
+              branchControl(branchConfig, gitProject) { finderConfigs =>
+                val finders = generateFinders(finderConfigs)
                 findAndReplace(templateDir, finders)
                 generateMessage(branchConfig)
               }
@@ -101,7 +95,7 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)(replaceFunction: (Seq[Finder] => String)): Unit = {
+  def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)(replaceFunction: (Seq[FinderConfig] => String)): Unit = {
     val branchName: String = branchConfig.name
     // Create a local branch from the upstream template's branch.
     // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
@@ -113,8 +107,7 @@ class TemplateControl(config: TemplateControlConfig) {
     // "git checkout templatecontrol-2.5.x"
     gitRepo.checkout(localBranchName)
 
-    val finders = fg(branchConfig.finders)
-    val message = replaceFunction(finders)
+    val message = replaceFunction(branchConfig.finders)
 
     // Did anything change?
     if (!gitRepo.status().isClean) {
@@ -153,12 +146,8 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  class FinderGenerator {
-    def apply(finderConfigs: Seq[FinderConfig]): Seq[Finder] = {
-      finderConfigs.map(apply)
-    }
-
-    def apply(finderConfig: FinderConfig): Finder = {
+  def generateFinders(finderConfigs: Seq[FinderConfig]): Seq[Finder] = {
+    finderConfigs.map { finderConfig =>
       val pattern = finderConfig.pattern
       val replacers = finderConfig.conversions.map { case (k, v) =>
         (s: String) =>
