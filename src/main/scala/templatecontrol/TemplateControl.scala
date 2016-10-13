@@ -6,13 +6,15 @@ import better.files._
 import com.typesafe.config.ConfigFactory
 
 class TemplateControl(config: TemplateControlConfig) {
-  val exampleCodeServiceHook = "https://example.lightbend.com/webhook"
+
+  // FIXME this should be described in configuration
+  private val exampleCodeServiceHook = "https://example.lightbend.com/webhook"
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  val fg = new FinderGenerator
+  private val fg = new FinderGenerator
 
-  val githubClient = {
+  private val githubClient: GithubClient = {
     val user = config.github.credentials.user
     val oauthToken = config.github.credentials.oauthToken
     val remote = config.github.remote
@@ -46,27 +48,16 @@ class TemplateControl(config: TemplateControlConfig) {
           }
 
           // For each branch in the template ("2.5.x")
-          config.branchConfigs.foreach { bc =>
-            logger.info(s"In template $templateName, updating branch ${bc.name}")
+          config.branchConfigs.foreach { branchConfig =>
+            logger.info(s"In template $templateName, updating branch ${branchConfig.name}")
             try {
-              branchControl(bc.name, gitProject) { () =>
-                val findAndReplace = new FindAndReplace(templateDir, fg(bc.finders))
-                findAndReplace()
-
-                val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
-                sb ++= "\n"
-                bc.finders.foreach { finder =>
-                  sb ++= s"  File-Pattern: ${finder.pattern}\n"
-                  finder.conversions.foreach { case (k, v) =>
-                    sb ++= s"    If-Found-In-Line: $k\n"
-                    sb ++= s"      Replace-Line-With: $v\n"
-                  }
-                }
-                sb.toString
+              branchControl(branchConfig, gitProject) { finders =>
+                findAndReplace(templateDir, finders)
+                generateMessage(branchConfig)
               }
             } catch {
               case e: Exception =>
-                logger.error(s"Cannot update template $templateName, branch ${bc.name}", e)
+                logger.error(s"Cannot update template $templateName, branch ${branchConfig.name}", e)
             }
           }
         }
@@ -75,6 +66,19 @@ class TemplateControl(config: TemplateControlConfig) {
           logger.error(s"Cannot clone template $templateName", e)
       }
     }
+  }
+
+  def generateMessage(branchConfig: BranchConfig): String = {
+    val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
+    sb ++= "\n"
+    branchConfig.finders.foreach { finder =>
+      sb ++= s"  File-Pattern: ${finder.pattern}\n"
+      finder.conversions.foreach { case (k, v) =>
+        sb ++= s"    If-Found-In-Line: $k\n"
+        sb ++= s"      Replace-Line-With: $v\n"
+      }
+    }
+    sb.toString
   }
 
   def templateControl(templateDir: File, templateName: String)(branchFunction: GitProject => Unit): Unit = {
@@ -97,7 +101,8 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  def branchControl(branchName: String, gitRepo: GitProject)(replaceFunction: (() => String)): Unit = {
+  def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)(replaceFunction: (Seq[Finder] => String)): Unit = {
+    val branchName: String = branchConfig.name
     // Create a local branch from the upstream template's branch.
     // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
     val localBranchName = s"templatecontrol-$branchName"
@@ -108,7 +113,8 @@ class TemplateControl(config: TemplateControlConfig) {
     // "git checkout templatecontrol-2.5.x"
     gitRepo.checkout(localBranchName)
 
-    val message = replaceFunction()
+    val finders = fg(branchConfig.finders)
+    val message = replaceFunction(finders)
 
     // Did anything change?
     if (!gitRepo.status().isClean) {
@@ -134,7 +140,20 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  class FinderGenerator() {
+  def findAndReplace(workingDir: File, finders: Seq[Finder]): Unit = {
+    finders.foreach { finder =>
+      workingDir.glob(finder.pattern).foreach { file =>
+        val tempFile = file.parent / s"${file.name}.tmp"
+        file.lines.foreach { line =>
+          finder.replacers.foldLeft(line)((acc, f) => f(acc)) >>: tempFile
+        }
+        file.delete()
+        tempFile.renameTo(file.name)
+      }
+    }
+  }
+
+  class FinderGenerator {
     def apply(finderConfigs: Seq[FinderConfig]): Seq[Finder] = {
       finderConfigs.map(apply)
     }
@@ -154,20 +173,6 @@ class TemplateControl(config: TemplateControlConfig) {
 
   case class Finder(pattern: String, replacers: Seq[String => String])
 
-  class FindAndReplace(workingDir: File, finders: Seq[Finder]) {
-    def apply(): Unit = {
-      finders.foreach { finder =>
-        workingDir.glob(finder.pattern).foreach { file =>
-          val tempFile = file.parent / s"${file.name}.tmp"
-          file.lines.foreach { line =>
-            finder.replacers.foldLeft(line)((acc, f) => f(acc)) >>: tempFile
-          }
-          file.delete()
-          tempFile.renameTo(file.name)
-        }
-      }
-    }
-  }
 }
 
 object TemplateControl {
