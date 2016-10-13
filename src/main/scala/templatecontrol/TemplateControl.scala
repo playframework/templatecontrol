@@ -17,28 +17,22 @@ class TemplateControl(config: TemplateControlConfig) {
     new GithubClient(user, oauthToken, remote, upstream)
   }
 
-  def run(tempDirectory: File): Or[Seq[Seq[BranchResult]], Every[ErrorMessage]] = {
+  private val webhook = config.github.webhook
+
+  def run(tempDirectory: File): Seq[TemplateResult] Or Every[ErrorMessage] = {
     import org.scalactic.Accumulation._
-
-    val webhook = config.github.webhook
-
-    // For each project ("play-streaming-java")
     config.templates.map { templateName =>
-      // Set up a working directory called "templates/play-streaming-java"
       val templateDir = tempDirectory / templateName
       templateControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
-
-        // For each branch in the template ("2.5.x")
         config.branchConfigs.map { branchConfig =>
-          logger.info(s"In template $templateName, updating branch ${branchConfig.name}")
           branchControl(branchConfig, gitProject) { finderConfigs =>
             val finders = generateFinders(finderConfigs)
             findAndReplace(templateDir, finders)
             generateMessage(branchConfig)
           }.accumulating
         }.combined
-      }
+      }.map(results => TemplateResult(templateName, results))
     }.combined
   }
 
@@ -48,7 +42,7 @@ class TemplateControl(config: TemplateControlConfig) {
     gitProject.hooks.exists(_.getConfig.get(configKey) == webhook(configKey))
   }
 
-  def processWebHooks(gitProject: GitProject, webhook: GithubWebhookConfig) = {
+  private def processWebHooks(gitProject: GitProject, webhook: GithubWebhookConfig) = {
     try {
       if (!findWebhook(gitProject, webhook.config)) {
         logger.error(s"Project does not contain $webhook!")
@@ -144,7 +138,7 @@ class TemplateControl(config: TemplateControlConfig) {
         //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
         gitRepo.pullRequest(localBranchName, branchName, message)
       }
-      Good(BranchResult(s"$branchName updated!"))
+      Good(BranchResult(branchName, s"$branchName updated!"))
     } catch {
       case e: Exception =>
         val msg = s"Cannot update template, branch ${branchConfig.name}"
@@ -187,7 +181,8 @@ class TemplateControl(config: TemplateControlConfig) {
 
 object TemplateControl {
 
-  case class BranchResult(result: String)
+  case class BranchResult(name: String, result: String)
+  case class TemplateResult(name: String, results: Seq[BranchResult])
 
   def main(args: Array[String]): Unit = {
     import com.typesafe.config.ConfigFactory
