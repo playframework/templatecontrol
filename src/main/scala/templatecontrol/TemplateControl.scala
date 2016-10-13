@@ -45,8 +45,9 @@ class TemplateControl(config: TemplateControlConfig) {
   private def processWebHooks(gitProject: GitProject, webhook: GithubWebhookConfig) = {
     try {
       if (!findWebhook(gitProject, webhook.config)) {
-        logger.error(s"Project does not contain $webhook!")
-        throw new IllegalStateException(s"Cannot add webhook $webhook")
+        val msg = s"Project does not contain $webhook!"
+        logger.error(msg)
+        throw new IllegalStateException(msg)
         // addWebhook does not appear to work because secret has to be defined in header :-(
         //gitProject.addWebhook(webhook.name, webhook.config)
       }
