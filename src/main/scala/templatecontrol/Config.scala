@@ -24,7 +24,7 @@ case class FinderConfig(pattern: String, conversions: Map[String, String])
  */
 case class BranchConfig(name: String, finders: Seq[FinderConfig])
 
-case class GithubConfig(upstream: String, remote: String, credentials: GithubCredentialsConfig)
+case class GithubConfig(upstream: String, remote: String, credentials: GithubCredentialsConfig, webhook: Map[String, String])
 
 case class GithubCredentialsConfig(user: String, oauthToken: String)
 
