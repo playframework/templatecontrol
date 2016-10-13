@@ -75,7 +75,7 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
       }
 
       new TransportConfigCallback() {
-        override def configure(transport: Transport) = {
+        override def configure(transport: Transport): Unit = {
           val sshTransport = transport.asInstanceOf[SshTransport]
           sshTransport.setSshSessionFactory(sshSessionFactory)
         }
@@ -99,7 +99,7 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
 
   private val config: StoredConfig = git.getRepository.getConfig
 
-  def fetch() = {
+  def fetch(): Unit = {
     val fetchResult = git.fetch().setRemote("upstream").call()
     fetchResult.getAdvertisedRefs.asScala.foreach { ref =>
       val refUpdate = fetchResult.getTrackingRefUpdate(ref.getName)
@@ -110,7 +110,7 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
     }
   }
 
-  def pull() = {
+  def pull(): PullResult = {
     git.pull().setRebase(true).call()
   }
 
@@ -214,7 +214,7 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
     status
   }
 
-  def log() = {
+  def log(): Iterable[RevCommit] = {
     val revCommits: Iterable[RevCommit] = git.log().call().asScala
 
     for (revCommit <- revCommits) {
