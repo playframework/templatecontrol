@@ -41,14 +41,13 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
 
   private val remoteUrl = remote.getSshUrl
 
-  def addExampleWebHook(): GHHook = {
-    val config = Map(
-      "url" -> "https://example.lightbend.com/webhook",
-      "content_type" -> "json",
-      "secret" -> "h0z6a<E;meeYPs:ptueB7Hg09RCbzPG9j;]j>SROKTeV=9>W5i_2BPsiIXzCjIQO"
-    )
-    val events = Set[GHEvent]()
-    upstream.createHook("example-webservice", config.asJava, events.asJava, true)
+  def addWebhook(name: String, config: Map[String, String]): GHHook = {
+    val events = Set(GHEvent.PUSH)
+    // https://developer.github.com/v3/repos/hooks/#create-a-hook
+    // FIXME this does not seem to work as it passes in secret directly instead of using
+    // X-Hub-Signature in the header.
+    // May have to move to https://github.com/eclipse/egit-github/tree/master/org.eclipse.egit.github.core
+    upstream.createHook(name, config.asJava, events.asJava, true)
   }
 
   def hooks: Seq[GHHook] = {

@@ -1,11 +1,11 @@
 package templatecontrol
 
-import java.time.Instant
-
 import better.files._
-import com.typesafe.config.ConfigFactory
+import org.scalactic._
 
 class TemplateControl(config: TemplateControlConfig) {
+
+  import TemplateControl._
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
@@ -17,65 +17,71 @@ class TemplateControl(config: TemplateControlConfig) {
     new GithubClient(user, oauthToken, remote, upstream)
   }
 
-  def findWebhook(gitProject: GitProject, webhook: Map[String, String]): Boolean = {
+  def run(tempDirectory: File): Or[Seq[Seq[BranchResult]], Every[ErrorMessage]] = {
+    import org.scalactic.Accumulation._
+
+    val webhook = config.github.webhook
+
+    // For each project ("play-streaming-java")
+    config.templates.map { templateName =>
+      // Set up a working directory called "templates/play-streaming-java"
+      val templateDir = tempDirectory / templateName
+      templateControl(templateDir, templateName) { gitProject =>
+        processWebHooks(gitProject, webhook)
+
+        // For each branch in the template ("2.5.x")
+        config.branchConfigs.map { branchConfig =>
+          logger.info(s"In template $templateName, updating branch ${branchConfig.name}")
+          branchControl(branchConfig, gitProject) { finderConfigs =>
+            val finders = generateFinders(finderConfigs)
+            findAndReplace(templateDir, finders)
+            generateMessage(branchConfig)
+          }.accumulating
+        }.combined
+      }
+    }.combined
+  }
+
+  private def findWebhook(gitProject: GitProject, webhook: Map[String, String]): Boolean = {
     // XXX eventually we'll want complete search and insertion of missing webhooks...
     val configKey = "url"
     gitProject.hooks.exists(_.getConfig.get(configKey) == webhook(configKey))
   }
 
-  def run(): Unit =  {
-    val webhook = config.github.webhook
-
-    // Delete the existing templates directory, if any.
-    config.baseDirectory.delete(swallowIOExceptions = true)
-
-    // For each project ("play-streaming-java")
-    config.templates.foreach { templateName =>
-      try {
-        // Set up a working directory called "templates/play-streaming-java"
-        val templateDir = config.baseDirectory / templateName
-        templateControl(templateDir, templateName) { gitProject =>
-
-          if (! findWebhook(gitProject, webhook)) {
-            logger.warn(s"Template $templateName does not contain $webhook!")
-          }
-
-          // For each branch in the template ("2.5.x")
-          config.branchConfigs.foreach { branchConfig =>
-            logger.info(s"In template $templateName, updating branch ${branchConfig.name}")
-            try {
-              branchControl(branchConfig, gitProject) { finderConfigs =>
-                val finders = generateFinders(finderConfigs)
-                findAndReplace(templateDir, finders)
-                generateMessage(branchConfig)
-              }
-            } catch {
-              case e: Exception =>
-                logger.error(s"Cannot update template $templateName, branch ${branchConfig.name}", e)
-            }
-          }
-        }
-      } catch {
-        case e: Exception =>
-          logger.error(s"Cannot clone template $templateName", e)
+  def processWebHooks(gitProject: GitProject, webhook: GithubWebhookConfig) = {
+    try {
+      if (!findWebhook(gitProject, webhook.config)) {
+        logger.error(s"Project does not contain $webhook!")
+        throw new IllegalStateException(s"Cannot add webhook $webhook")
+        // addWebhook does not appear to work because secret has to be defined in header :-(
+        //gitProject.addWebhook(webhook.name, webhook.config)
       }
+    } catch {
+      case ise: IllegalStateException =>
+        throw ise
+      case e: Exception =>
+        throw new IllegalStateException(s"Cannot add webhook $webhook", e)
     }
   }
 
-  def generateMessage(branchConfig: BranchConfig): String = {
+  private def generateMessage(branchConfig: BranchConfig): String = {
+    import java.time.Instant
+
     val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
     sb ++= "\n"
     branchConfig.finders.foreach { finder =>
       sb ++= s"  File-Pattern: ${finder.pattern}\n"
-      finder.conversions.foreach { case (k, v) =>
-        sb ++= s"    If-Found-In-Line: $k\n"
-        sb ++= s"      Replace-Line-With: $v\n"
+      finder.conversions.foreach {
+        case (k, v) =>
+          sb ++= s"    If-Found-In-Line: $k\n"
+          sb ++= s"      Replace-Line-With: $v\n"
       }
     }
     sb.toString
   }
 
-  def templateControl(templateDir: File, templateName: String)(branchFunction: GitProject => Unit): Unit = {
+  private def templateControl(templateDir: File, templateName: String)
+                             (branchFunction: GitProject => Seq[BranchResult] Or Every[ErrorMessage]) = {
     logger.info(s"Cloning template $templateName into $templateDir")
 
     if (templateDir.exists) {
@@ -89,51 +95,65 @@ class TemplateControl(config: TemplateControlConfig) {
       gitRepo.fetch()
 
       branchFunction(gitRepo)
+    } catch {
+      case e: Exception =>
+        val msg = s"Template $templateName failed: ${e.getMessage}"
+        logger.error(msg, e)
+        Bad(One(msg))
     } finally {
       // close the repo to stop file descriptors from leaking.
       gitRepo.close()
     }
   }
 
-  def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)(replaceFunction: (Seq[FinderConfig] => String)): Unit = {
+  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)
+                           (replaceFunction: (Seq[FinderConfig] => String)) = {
     val branchName: String = branchConfig.name
-    // Create a local branch from the upstream template's branch.
-    // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
-    val localBranchName = s"templatecontrol-$branchName"
-    val startPoint = s"upstream/$branchName"
-    gitRepo.createBranch(localBranchName, startPoint)
+    try {
+      // Create a local branch from the upstream template's branch.
+      // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
+      val localBranchName = s"templatecontrol-$branchName"
+      val startPoint = s"upstream/$branchName"
+      gitRepo.createBranch(localBranchName, startPoint)
 
-    // Checkout the branch we just created:
-    // "git checkout templatecontrol-2.5.x"
-    gitRepo.checkout(localBranchName)
+      // Checkout the branch we just created:
+      // "git checkout templatecontrol-2.5.x"
+      gitRepo.checkout(localBranchName)
 
-    val message = replaceFunction(branchConfig.finders)
+      val message = replaceFunction(branchConfig.finders)
 
-    // Did anything change?
-    if (!gitRepo.status().isClean) {
-      // If so, add the changes to the branch...
-      // "git add ."
-      gitRepo.add()
+      // Did anything change?
+      if (!gitRepo.status().isClean) {
+        // If so, add the changes to the branch...
+        // "git add ."
+        gitRepo.add()
 
-      // Commit the added changes...
-      // "git commit -m $message"
-      gitRepo.commit(message)
+        // Commit the added changes...
+        // "git commit -m $message"
+        gitRepo.commit(message)
 
-      // Push this new branch to the remote repository
-      // "git push origin templatecontrol-2.5.x"
-      gitRepo.push(localBranchName)
+        // Push this new branch to the remote repository
+        // "git push origin templatecontrol-2.5.x"
+        gitRepo.push(localBranchName)
 
-      // And finally, create a pull request
-      // from the remote github project ("wsargent/play-streaming-java")
-      // to upstream github project ("playframework/play-streaming-java")
-      // "hub pull-request \
-      //   -h playframework/play-streaming-java:2.5.x \
-      //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
-      gitRepo.pullRequest(localBranchName, branchName, message)
+        // And finally, create a pull request
+        // from the remote github project ("wsargent/play-streaming-java")
+        // to upstream github project ("playframework/play-streaming-java")
+        // "hub pull-request \
+        //   -h playframework/play-streaming-java:2.5.x \
+        //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
+        gitRepo.pullRequest(localBranchName, branchName, message)
+      }
+      Good(BranchResult(s"$branchName updated!"))
+    } catch {
+      case e: Exception =>
+        val msg = s"Cannot update template, branch ${branchConfig.name}"
+        logger.error(msg, e)
+        Bad(msg)
     }
   }
 
-  def findAndReplace(workingDir: File, finders: Seq[Finder]): Unit = {
+  private def findAndReplace(workingDir: File, finders: Seq[Finder]): Unit = {
     finders.foreach { finder =>
       workingDir.glob(finder.pattern).foreach { file =>
         val tempFile = file.parent / s"${file.name}.tmp"
@@ -146,30 +166,54 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  def generateFinders(finderConfigs: Seq[FinderConfig]): Seq[Finder] = {
+  private def generateFinders(finderConfigs: Seq[FinderConfig]): Seq[Finder] = {
     finderConfigs.map { finderConfig =>
       val pattern = finderConfig.pattern
-      val replacers = finderConfig.conversions.map { case (k, v) =>
-        (s: String) =>
-          k.r.findFirstIn(s) match {
-            case Some(_) => v
-            case None => s
-          }
+      val replacers = finderConfig.conversions.map {
+        case (k, v) =>
+          (s: String) =>
+            k.r.findFirstIn(s) match {
+              case Some(_) => v
+              case None => s
+            }
       }.toSeq
       Finder(pattern, replacers)
     }
   }
 
-  case class Finder(pattern: String, replacers: Seq[String => String])
+  private case class Finder(pattern: String, replacers: Seq[String => String])
 
 }
 
 object TemplateControl {
 
+  case class BranchResult(result: String)
+
   def main(args: Array[String]): Unit = {
+    import com.typesafe.config.ConfigFactory
     val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
+
     val control = new TemplateControl(config)
-    control.run()
+
+    // print out any errors accumulated.
+    control.run(tempDirectory(config.baseDirectory)).badMap { everyMessage =>
+      everyMessage.foreach { errorMessage =>
+        println(errorMessage)
+      }
+    }
+  }
+
+  def tempDirectory(baseDirectory: File): File = {
+    import java.nio.file.attribute.PosixFilePermissions
+    import java.nio.file.Files
+
+    val perms = PosixFilePermissions.fromString("rwx------")
+    val attrs = PosixFilePermissions.asFileAttribute(perms)
+    val tempFile: File = Files.createTempDirectory(baseDirectory.toJava.toPath, "", attrs)
+
+    // Note this only happens if you don't interrupt or crash the JVM in some way.
+    tempFile.toJava.deleteOnExit()
+    tempFile
   }
 
 }
