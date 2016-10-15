@@ -35,16 +35,6 @@ Once you've got the credentials, there's a single main method:
 sbt run
 ```
 
-## Debugging
-
-The most common cause of bugs is that you already have a branch with that name -- you need to delete the branch after merging.
-
-For more general problems, change the logback.xml file:
-
-```
-<logger name="templatecontrol" level="DEBUG"/>
-```
-
 ## License
 
 This software is licensed under the Apache 2 license, quoted below.
