@@ -1,13 +1,12 @@
 package templatecontrol
 
 import better.files._
-import org.scalactic._
+
+import scala.collection.parallel.ParSeq
 
 class TemplateControl(config: TemplateControlConfig) {
 
   import TemplateControl._
-
-  private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
   private val githubClient: GithubClient = {
     val user = config.github.credentials.user
@@ -19,21 +18,18 @@ class TemplateControl(config: TemplateControlConfig) {
 
   private val webhook = config.github.webhook
 
-  def run(tempDirectory: File): Seq[TemplateResult] Or Every[ErrorMessage] = {
-    import org.scalactic.Accumulation._
-    config.templates.map { templateName =>
+  def run(tempDirectory: File): ParSeq[ProjectResult] = {
+    config.templates.par.map { templateName =>
       val templateDir = tempDirectory / templateName
-      templateControl(templateDir, templateName) { gitProject =>
+      projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
         config.branchConfigs.map { branchConfig =>
-          branchControl(branchConfig, gitProject) { finderConfigs =>
-            val finders = generateFinders(finderConfigs)
+          branchControl(branchConfig, gitProject) { finders =>
             findAndReplace(templateDir, finders)
-            generateMessage(branchConfig)
-          }.accumulating
-        }.combined
-      }.map(results => TemplateResult(templateName, results))
-    }.combined
+          }
+        }
+      }
+    }
   }
 
   private def findWebhook(gitProject: GitProject, webhook: Map[String, String]): Boolean = {
@@ -46,7 +42,6 @@ class TemplateControl(config: TemplateControlConfig) {
     try {
       if (!findWebhook(gitProject, webhook.config)) {
         val msg = s"Project does not contain $webhook!"
-        logger.error(msg)
         throw new IllegalStateException(msg)
         // addWebhook does not appear to work because secret has to be defined in header :-(
         //gitProject.addWebhook(webhook.name, webhook.config)
@@ -59,26 +54,20 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  private def generateMessage(branchConfig: BranchConfig): String = {
+  private def generateMessage(results: Seq[FinderResult]): String = {
     import java.time.Instant
 
     val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
     sb ++= "\n"
-    branchConfig.finders.foreach { finder =>
-      sb ++= s"  File-Pattern: ${finder.pattern}\n"
-      finder.conversions.foreach {
-        case (k, v) =>
-          sb ++= s"    If-Found-In-Line: $k\n"
-          sb ++= s"      Replace-Line-With: $v\n"
-      }
+    results.foreach { result =>
+      sb ++= s"  ${result.finder.pattern}:\n"
+      sb ++= s"    ${result.modified}\n"
     }
     sb.toString
   }
 
-  private def templateControl(templateDir: File, templateName: String)
-                             (branchFunction: GitProject => Seq[BranchResult] Or Every[ErrorMessage]) = {
-    logger.info(s"Cloning template $templateName into $templateDir")
-
+  private def projectControl(templateDir: File, templateName: String)
+                             (branchFunction: GitProject => Seq[BranchResult]): ProjectResult = {
     if (templateDir.exists) {
       throw new IllegalStateException(s"$templateDir already exists!")
     }
@@ -89,12 +78,11 @@ class TemplateControl(config: TemplateControlConfig) {
       // Make sure we have all the branches from remote.
       gitRepo.fetch()
 
-      branchFunction(gitRepo)
+      val results = branchFunction(gitRepo)
+      ProjectSuccess(templateName, results)
     } catch {
       case e: Exception =>
-        val msg = s"Template $templateName failed: ${e.getMessage}"
-        logger.error(msg, e)
-        Bad(One(msg))
+        ProjectFailure(templateName, e)
     } finally {
       // close the repo to stop file descriptors from leaking.
       gitRepo.close()
@@ -102,7 +90,7 @@ class TemplateControl(config: TemplateControlConfig) {
   }
 
   private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)
-                           (replaceFunction: (Seq[FinderConfig] => String)) = {
+                           (replaceFunction: (Seq[FinderConfig] => Seq[FinderResult])): BranchResult = {
     val branchName: String = branchConfig.name
     try {
       // Create a local branch from the upstream template's branch.
@@ -115,7 +103,9 @@ class TemplateControl(config: TemplateControlConfig) {
       // "git checkout templatecontrol-2.5.x"
       gitRepo.checkout(localBranchName)
 
-      val message = replaceFunction(branchConfig.finders)
+      val results = replaceFunction(branchConfig.finders)
+
+      val message = generateMessage(results)
 
       // Did anything change?
       if (!gitRepo.status().isClean) {
@@ -139,64 +129,92 @@ class TemplateControl(config: TemplateControlConfig) {
         //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
         gitRepo.pullRequest(localBranchName, branchName, message)
       }
-      Good(BranchResult(branchName, s"$branchName updated!"))
+      BranchSuccess(branchName, results)
     } catch {
       case e: Exception =>
-        val msg = s"Cannot update template, branch ${branchConfig.name}"
-        logger.error(msg, e)
-        Bad(msg)
+        BranchFailure(branchName, e)
     }
   }
 
-  private def findAndReplace(workingDir: File, finders: Seq[Finder]): Unit = {
-    finders.foreach { finder =>
-      workingDir.glob(finder.pattern).foreach { file =>
+  private def findAndReplace(workingDir: File, finderConfigs: Seq[FinderConfig]): Seq[FinderResult] = {
+    finderConfigs.flatMap { finderConfig =>
+      workingDir.glob(finderConfig.pattern).flatMap { file =>
         val tempFile = file.parent / s"${file.name}.tmp"
-        file.lines.foreach { line =>
-          finder.replacers.foldLeft(line)((acc, f) => f(acc)) >>: tempFile
+        val replaceFunctions = finderConfig.conversions.map {
+          case (k, v) =>
+            (s: String) =>
+              k.r.findFirstIn(s) match {
+                case Some(_) => v
+                case None => s
+              }
+        }
+        val results = file.lines.flatMap { line =>
+          val modified = replaceFunctions.foldLeft(line)((acc, f) => f(acc))
+          modified >>: tempFile
+          if (line.equals(modified)) {
+            None
+          } else {
+            Some(FinderResult(finderConfig, modified))
+          }
         }
         file.delete()
         tempFile.renameTo(file.name)
+        results
       }
     }
   }
-
-  private def generateFinders(finderConfigs: Seq[FinderConfig]): Seq[Finder] = {
-    finderConfigs.map { finderConfig =>
-      val pattern = finderConfig.pattern
-      val replacers = finderConfig.conversions.map {
-        case (k, v) =>
-          (s: String) =>
-            k.r.findFirstIn(s) match {
-              case Some(_) => v
-              case None => s
-            }
-      }.toSeq
-      Finder(pattern, replacers)
-    }
-  }
-
-  private case class Finder(pattern: String, replacers: Seq[String => String])
-
 }
 
 object TemplateControl {
 
-  case class BranchResult(name: String, result: String)
-  case class TemplateResult(name: String, results: Seq[BranchResult])
+  case class FinderResult(finder: FinderConfig, modified: String)
+
+  sealed trait BranchResult { def name: String }
+  case class BranchSuccess(name: String, results: Seq[FinderResult]) extends BranchResult
+  case class BranchFailure(name: String, exception: Exception) extends BranchResult
+
+  sealed trait ProjectResult { def name: String }
+  case class ProjectFailure(name: String, exception: Exception) extends ProjectResult
+  case class ProjectSuccess(name: String, results: Seq[BranchResult]) extends ProjectResult
 
   def main(args: Array[String]): Unit = {
     import com.typesafe.config.ConfigFactory
     val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
-
     val control = new TemplateControl(config)
+    val upstream = config.github.upstream
+    val s = control.run(tempDirectory(config.baseDirectory)).map {
+      case ProjectSuccess(name, branches) =>
+        val sb = new StringBuilder
+        branches.foreach {
+          case BranchSuccess(branch, replacements) if replacements.nonEmpty =>
+            sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
+            replacements.foreach {
+              case FinderResult(finder, modified) =>
+                sb ++= s"    ${finder.pattern}:\n"
+                sb ++= s"       $modified\n"
+            }
+          case BranchFailure(branch, e) =>
+            sb ++= s"https://github.com/$upstream/$name/tree/$branch - FAILURE\n"
+            sb ++= exceptionToString(e)
 
-    // print out any errors accumulated.
-    control.run(tempDirectory(config.baseDirectory)).badMap { everyMessage =>
-      everyMessage.foreach { errorMessage =>
-        println(errorMessage)
-      }
+          case _ =>
+            // do nothing
+        }
+        sb.toString()
+
+      case ProjectFailure(name, e) =>
+        val sb = new StringBuilder(s"$name: FAILURE\n")
+        sb ++= exceptionToString(e)
+        sb.toString
+
     }
+    println(s.mkString(""))
+  }
+
+  def exceptionToString(e: Exception): String = {
+    val errors = new java.io.StringWriter()
+    e.printStackTrace(new java.io.PrintWriter(errors))
+    errors.toString
   }
 
   def tempDirectory(baseDirectory: File): File = {

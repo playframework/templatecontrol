@@ -22,5 +22,4 @@ libraryDependencies +=  "org.eclipse.jgit" % "org.eclipse.jgit" % "4.5.0.2016092
 libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
 
 // http://www.scalactic.org/user_guide
-libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.0"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
