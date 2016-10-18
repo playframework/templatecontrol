@@ -2,9 +2,11 @@ package templatecontrol
 
 import better.files._
 
-import scala.collection.parallel.ParSeq
+import scala.concurrent.Future
 
 class TemplateControl(config: TemplateControlConfig) {
+  import scala.concurrent.blocking
+  import scala.concurrent.ExecutionContext.Implicits._
 
   import TemplateControl._
 
@@ -18,9 +20,17 @@ class TemplateControl(config: TemplateControlConfig) {
 
   private val webhook = config.github.webhook
 
-  def run(tempDirectory: File): ParSeq[ProjectResult] = {
-    config.templates.par.map { templateName =>
-      val templateDir = tempDirectory / templateName
+  def run(tempDirectory: File): Future[Seq[ProjectResult]] = {
+    Future.sequence {
+      config.templates.map { (templateName: String) =>
+        val templateDir: File = tempDirectory / templateName
+        createTemplate(templateDir, templateName)
+      }
+    }
+  }
+
+  def createTemplate(templateDir: File, templateName: String): Future[ProjectResult] = Future {
+    blocking {
       projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
         config.branchConfigs.map { branchConfig =>
@@ -166,6 +176,7 @@ class TemplateControl(config: TemplateControlConfig) {
 }
 
 object TemplateControl {
+  import scala.concurrent.ExecutionContext.Implicits._
 
   case class FinderResult(finder: FinderConfig, modified: String)
 
@@ -181,8 +192,24 @@ object TemplateControl {
     import com.typesafe.config.ConfigFactory
     val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
     val control = new TemplateControl(config)
-    val upstream = config.github.upstream
-    val s = control.run(tempDirectory(config.baseDirectory)).map {
+
+    val exampleCodeClient = new ExampleCodeClient(config.exampleCodeServiceUrl)
+    exampleCodeClient.call().map { maybeData =>
+      maybeData.foreach { data =>
+        println(s"data = ${data}")
+      }
+    }.andThen {
+      case _ => exampleCodeClient.close()
+    }
+
+    control.run(tempDirectory(config.baseDirectory)).map { results =>
+      val upstream = config.github.upstream
+      report(upstream, results)
+    }
+  }
+
+  def report(upstream: String, results: Seq[ProjectResult]): Unit = {
+    val s = results.map {
       case ProjectSuccess(name, branches) =>
         val sb = new StringBuilder
         branches.foreach {
@@ -198,7 +225,7 @@ object TemplateControl {
             sb ++= exceptionToString(e)
 
           case _ =>
-            // do nothing
+          // do nothing
         }
         sb.toString()
 

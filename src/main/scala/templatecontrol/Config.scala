@@ -33,14 +33,15 @@ case class GithubCredentialsConfig(user: String, oauthToken: String)
 /**
  * Overall config containing all the templates and the branch mappings applicable to all.
  *
- *
  * @param baseDirectory   the directory to clone templates in
  * @param github github config
+ * @param exampleCodeServiceUrl url to the example code service.
  * @param templates set of templates
  * @param branchConfigs   set of branches
  */
 case class TemplateControlConfig(baseDirectory: File,
                                  github: GithubConfig,
+                                 exampleCodeServiceUrl: java.net.URL,
                                  templates: Seq[String],
                                  branchConfigs: Seq[BranchConfig])
 
@@ -67,6 +68,7 @@ object TemplateControlConfig {
     TemplateControlConfig(
       tc.as[String]("baseDirectory").toFile,
       tc.as[GithubConfig]("github"),
+      new java.net.URL(tc.as[String]("exampleCodeServiceUrl")),
       tc.as[Seq[String]]("templates"),
       tc.as[Seq[BranchConfig]]("branches")
     )
