@@ -23,3 +23,5 @@ libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
 
 // http://www.scalactic.org/user_guide
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
+
+libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.5.9"
