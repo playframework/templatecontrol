@@ -25,3 +25,6 @@ libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 
 libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.5.9"
+
+// http://software.clapper.org/scalasti/
+libraryDependencies += "org.clapper" %% "scalasti" % "2.1.2"

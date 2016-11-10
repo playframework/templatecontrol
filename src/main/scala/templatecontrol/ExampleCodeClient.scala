@@ -18,10 +18,11 @@ class ExampleCodeClient(exampleCodeServiceUrl: java.net.URL) {
   private implicit val ec = system.dispatchers.defaultGlobalDispatcher
   private val wsClient = AhcWSClient()
 
-  implicit val projectTemplateReads = Json.reads[ProjectTemplate]
+  implicit val projectTemplateReads: Reads[ProjectTemplate] = Json.reads[ProjectTemplate]
 
-  def call(): Future[Seq[ProjectTemplate]] = {
-    wsClient.url(exampleCodeServiceUrl.toString).get().map { response =>
+  def call(keywords: Seq[String]): Future[Seq[ProjectTemplate]] = {
+    val keywordParams = keywords.map("keyword" -> _)
+    wsClient.url(exampleCodeServiceUrl.toString).withQueryString(keywordParams: _*).get().map { response =>
       Json.fromJson[Seq[ProjectTemplate]](response.json) match {
         case JsSuccess(value, _) =>
           value
