@@ -64,7 +64,7 @@ class GitProject(workingDir: File, upstream: GHRepository, remote: GHRepository)
                   |$message
                   |```
           """.stripMargin
-    upstream.createPullRequest(title, head, base, body)
+    //upstream.createPullRequest(title, head, base, body)
   }
 
   private val git: Git = {

@@ -2,7 +2,8 @@ package templatecontrol
 
 import better.files._
 
-import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 
 class TemplateControl(config: TemplateControlConfig) {
   import scala.concurrent.blocking
@@ -20,9 +21,9 @@ class TemplateControl(config: TemplateControlConfig) {
 
   private val webhook = config.github.webhook
 
-  def run(tempDirectory: File): Future[Seq[ProjectResult]] = {
+  def run(tempDirectory: File, templates: Seq[String]): Future[Seq[ProjectResult]] = {
     Future.sequence {
-      config.templates.map { (templateName: String) =>
+      templates.map { (templateName: String) =>
         val templateDir: File = tempDirectory / templateName
         createTemplate(templateDir, templateName)
       }
@@ -34,8 +35,9 @@ class TemplateControl(config: TemplateControlConfig) {
       projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
         config.branchConfigs.map { branchConfig =>
-          branchControl(branchConfig, gitProject) { finders =>
-            findAndReplace(templateDir, finders)
+          branchControl(branchConfig, gitProject) { (finders, inserters) =>
+            copy(templateDir, inserters) ++
+              findAndReplace(templateDir, finders)
           }
         }
       }
@@ -64,13 +66,13 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  private def generateMessage(results: Seq[FinderResult]): String = {
+  private def generateMessage(results: Seq[OperationResult]): String = {
     import java.time.Instant
 
     val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
     sb ++= "\n"
     results.foreach { result =>
-      sb ++= s"  ${result.finder.pattern}:\n"
+      sb ++= s"  ${result.config.path}:\n"
       sb ++= s"    ${result.modified}\n"
     }
     sb.toString
@@ -100,7 +102,7 @@ class TemplateControl(config: TemplateControlConfig) {
   }
 
   private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)
-                           (replaceFunction: (Seq[FinderConfig] => Seq[FinderResult])): BranchResult = {
+                           (branchFunction: ((Seq[FinderConfig], Seq[CopyConfig]) => Seq[OperationResult])): BranchResult = {
     val branchName: String = branchConfig.name
     try {
       // Create a local branch from the upstream template's branch.
@@ -113,8 +115,7 @@ class TemplateControl(config: TemplateControlConfig) {
       // "git checkout templatecontrol-2.5.x"
       gitRepo.checkout(localBranchName)
 
-      val results = replaceFunction(branchConfig.finders)
-
+      val results = branchFunction(branchConfig.finders, branchConfig.copy)
       val message = generateMessage(results)
 
       // Did anything change?
@@ -146,9 +147,26 @@ class TemplateControl(config: TemplateControlConfig) {
     }
   }
 
-  private def findAndReplace(workingDir: File, finderConfigs: Seq[FinderConfig]): Seq[FinderResult] = {
+  private def copy(workingDir: File, copyConfigs: Seq[CopyConfig]): Seq[OperationResult] = {
+    copyConfigs.flatMap { c =>
+      val templateStream = Option(this.getClass.getResourceAsStream(c.template)).getOrElse(
+        throw new IllegalStateException(s"Cannot find resource for ${c.template}")
+      )
+      val dest: File = s"${workingDir.path.toAbsolutePath}${c.path}".toFile
+      blocking {
+        for {
+          in <- templateStream.autoClosed
+          out <- dest.newOutputStream.autoClosed
+        } in.pipeTo(out)
+        val modified = s"wrote ${c.path}"
+        Some(OperationResult(c, modified))
+      }
+    }
+  }
+
+  private def findAndReplace(workingDir: File, finderConfigs: Seq[FinderConfig]): Seq[OperationResult] = {
     finderConfigs.flatMap { finderConfig =>
-      workingDir.glob(finderConfig.pattern).flatMap { file =>
+      workingDir.glob(finderConfig.path).flatMap { file =>
         val tempFile = file.parent / s"${file.name}.tmp"
         val replaceFunctions = finderConfig.conversions.map {
           case (k, v) =>
@@ -164,7 +182,7 @@ class TemplateControl(config: TemplateControlConfig) {
           if (line.equals(modified)) {
             None
           } else {
-            Some(FinderResult(finderConfig, modified))
+            Some(OperationResult(finderConfig, modified))
           }
         }
         file.delete()
@@ -178,10 +196,10 @@ class TemplateControl(config: TemplateControlConfig) {
 object TemplateControl {
   import scala.concurrent.ExecutionContext.Implicits._
 
-  case class FinderResult(finder: FinderConfig, modified: String)
+  case class OperationResult(config: OperationConfig, modified: String)
 
   sealed trait BranchResult { def name: String }
-  case class BranchSuccess(name: String, results: Seq[FinderResult]) extends BranchResult
+  case class BranchSuccess(name: String, results: Seq[OperationResult]) extends BranchResult
   case class BranchFailure(name: String, exception: Exception) extends BranchResult
 
   sealed trait ProjectResult { def name: String }
@@ -193,19 +211,21 @@ object TemplateControl {
     val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
     val control = new TemplateControl(config)
 
-    val exampleCodeClient = new ExampleCodeClient(config.exampleCodeServiceUrl)
-    exampleCodeClient.call().map { maybeData =>
-      maybeData.foreach { data =>
-        println(s"data = ${data}")
-      }
-    }.andThen {
-      case _ => exampleCodeClient.close()
-    }
-
-    control.run(tempDirectory(config.baseDirectory)).map { results =>
+    //    val exampleCodeClient = new ExampleCodeClient(config.exampleCodeServiceUrl)
+    //    exampleCodeClient.call().map { maybeData =>
+    //      maybeData.foreach { data =>
+    //        println(s"data = ${data}")
+    //      }
+    //    }.andThen {
+    //      case _ => exampleCodeClient.close()
+    //    }
+    val names = config.templates
+    val reports = control.run(tempDirectory(config.baseDirectory), names).map { results =>
       val upstream = config.github.upstream
       report(upstream, results)
     }
+
+    Await.result(reports, Duration.Inf)
   }
 
   def report(upstream: String, results: Seq[ProjectResult]): Unit = {
@@ -216,8 +236,8 @@ object TemplateControl {
           case BranchSuccess(branch, replacements) if replacements.nonEmpty =>
             sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
             replacements.foreach {
-              case FinderResult(finder, modified) =>
-                sb ++= s"    ${finder.pattern}:\n"
+              case OperationResult(finder, modified) =>
+                sb ++= s"    ${finder.path}:\n"
                 sb ++= s"       $modified\n"
             }
           case BranchFailure(branch, e) =>
