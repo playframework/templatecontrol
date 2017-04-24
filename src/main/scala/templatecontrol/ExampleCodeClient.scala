@@ -1,7 +1,7 @@
 package templatecontrol
 
 import play.api.libs.json._
-import play.api.libs.functional.syntax._
+import play.api.libs.ws.ahc.StandaloneAhcWSClient
 
 /**
  * A WS client that downloads the list of available projects
@@ -9,14 +9,13 @@ import play.api.libs.functional.syntax._
 class ExampleCodeClient(exampleCodeServiceUrl: java.net.URL) {
   import akka.actor.ActorSystem
   import akka.stream.ActorMaterializer
-  import play.api.libs.ws.ahc.AhcWSClient
   import scala.concurrent.Future
 
   private implicit val system = ActorSystem()
   private implicit val materializer = ActorMaterializer()
 
   private implicit val ec = system.dispatchers.defaultGlobalDispatcher
-  private val wsClient = AhcWSClient()
+  private val wsClient = StandaloneAhcWSClient()
 
   implicit val projectTemplateReads: Reads[ProjectTemplate] = Json.reads[ProjectTemplate]
 

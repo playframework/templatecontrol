@@ -1,12 +1,10 @@
 package templatecontrol
 
 import better.files._
-import org.clapper.scalasti.{STGroupDir, STGroupFile}
 import templatecontrol.stub.StubGithubClient
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 
 object TemplateControl {
   import scala.concurrent.ExecutionContext.Implicits._

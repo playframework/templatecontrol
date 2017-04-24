@@ -1,4 +1,4 @@
-scalaVersion := "2.11.8"
+scalaVersion := "2.11.11"
 
 // For Ficus
 resolvers += Resolver.jcenterRepo
@@ -24,7 +24,7 @@ libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
 // http://www.scalactic.org/user_guide
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 
-libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.5.9"
+libraryDependencies += "com.typesafe.play" %% "play-ahc-ws-standalone" % "1.0.0-M3"
 
 // http://software.clapper.org/scalasti/
 libraryDependencies += "org.clapper" %% "scalasti" % "2.1.2"
