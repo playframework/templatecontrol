@@ -38,7 +38,7 @@ class CopyTask(c: Config) extends Task {
   def execute(workingDir: File): Seq[OperationResult] = {
     copyConfigs.flatMap { c =>
       val source: File = findTemplate(c.template)
-      val dest: File = s"${workingDir.path.toAbsolutePath}${c.path}".toFile
+      val dest: File = file"${workingDir.path.toAbsolutePath}${c.path}"
       blocking {
         if (source.isSameContentAs(dest)) {
           None
