@@ -11,31 +11,13 @@ trait OperationConfig {
 }
 
 /**
- * Sets up a file finder glob to text search mappings.
- *
- * @param path     a glob pattern from http://docs.oracle.com/javase/tutorial/essential/io/fileOps.html#glob
- * @param conversions a mapping from a search substring to the text line conversion.
- */
-case class FinderConfig(path: String, conversions: Map[String, String]) extends OperationConfig
-
-/**
- * Sets up a path to template mapping
- *
- * @param path the file to search for
- * @param template the template contents to put into the file.
- */
-case class CopyConfig(path: String, template: String) extends OperationConfig
-
-/**
  * Sets up a map between the branch and the file search and replace operations specific to that branch.
  *
  * We assume the mapping is specific to the branch, and not to the individual template.
  *
  * @param name    the branch name ("2.5.x")
- * @param copy inserters for replacing files
- * @param finders the set of file finders for replacing lines
  */
-case class BranchConfig(name: String, copy: Seq[CopyConfig], finders: Seq[FinderConfig])
+case class BranchConfig(name: String, config: Config)
 
 case class GithubConfig(upstream: String, remote: String, credentials: GithubCredentialsConfig, webhook: GithubWebhookConfig)
 
@@ -61,15 +43,7 @@ object TemplateControlConfig {
   implicit val branchConfigReader: ValueReader[BranchConfig] = ValueReader.relative { c =>
     BranchConfig(
       name = c.as[String]("name"),
-      copy = c.as[Seq[CopyConfig]]("copy"),
-      finders = c.as[Seq[FinderConfig]]("finders")
-    )
-  }
-
-  implicit val finderConfigReader: ValueReader[FinderConfig] = ValueReader.relative { c =>
-    FinderConfig(
-      path = c.as[String]("path"),
-      conversions = c.as[Map[String, String]]("conversions")
+      config = c
     )
   }
 

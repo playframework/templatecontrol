@@ -1,6 +1,7 @@
 package templatecontrol
 
 import better.files._
+import com.typesafe.config.Config
 import templatecontrol.stub.StubGithubClient
 
 import scala.concurrent.duration.Duration
@@ -101,8 +102,6 @@ object TemplateControl {
     tempFile
   }
 
-  case class OperationResult(config: OperationConfig, modified: String)
-
   sealed trait BranchResult { def name: String }
   case class BranchSuccess(name: String, results: Seq[OperationResult]) extends BranchResult
   case class BranchFailure(name: String, exception: Exception) extends BranchResult
@@ -113,6 +112,8 @@ object TemplateControl {
 
 }
 
+case class OperationResult(config: OperationConfig, modified: String)
+
 class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
   import scala.concurrent.blocking
   import scala.concurrent.ExecutionContext.Implicits._
@@ -120,6 +121,10 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
   import TemplateControl._
 
   private val webhook = config.github.webhook
+
+  private def tasks(config: Config): Seq[Task] = {
+    Seq(new CopyTask(config),new FindReplaceTask(config))
+  }
 
   def run(tempDirectory: File, templates: Seq[String]): Future[Seq[ProjectResult]] = {
     Future.sequence {
@@ -135,9 +140,8 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
       projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
         config.branchConfigs.map { branchConfig =>
-          branchControl(branchConfig, gitProject) { (finders, inserters) =>
-            copy(templateDir, inserters) ++
-              findAndReplace(templateDir, finders)
+          branchControl(branchConfig, gitProject) { t =>
+            t.flatMap(_.execute(templateDir))
           }
         }
       }
@@ -202,7 +206,7 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
   }
 
   private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)
-                           (branchFunction: ((Seq[FinderConfig], Seq[CopyConfig]) => Seq[OperationResult])): BranchResult = {
+                           (branchFunction: (Seq[Task]) => Seq[OperationResult]): BranchResult = {
     val branchName: String = branchConfig.name
     try {
       // Create a local branch from the upstream template's branch.
@@ -215,7 +219,7 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
       // "git checkout templatecontrol-2.5.x"
       gitRepo.checkout(localBranchName)
 
-      val results = branchFunction(branchConfig.finders, branchConfig.copy)
+      val results = branchFunction(tasks(branchConfig.config))
       val message = generateMessage(results)
 
       // Did anything change?
@@ -244,51 +248,6 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     } catch {
       case e: Exception =>
         BranchFailure(branchName, e)
-    }
-  }
-
-  private def copy(workingDir: File, copyConfigs: Seq[CopyConfig]): Seq[OperationResult] = {
-    copyConfigs.flatMap { c =>
-      val templateStream = Option(this.getClass.getResourceAsStream(c.template)).getOrElse(
-        throw new IllegalStateException(s"Cannot find resource for ${c.template}")
-      )
-      val dest: File = s"${workingDir.path.toAbsolutePath}${c.path}".toFile
-      blocking {
-        for {
-          in <- templateStream.autoClosed
-          out <- dest.newOutputStream.autoClosed
-        } in.pipeTo(out)
-        val modified = s"wrote ${c.path}"
-        Some(OperationResult(c, modified))
-      }
-    }
-  }
-
-  private def findAndReplace(workingDir: File, finderConfigs: Seq[FinderConfig]): Seq[OperationResult] = {
-    finderConfigs.flatMap { finderConfig =>
-      workingDir.glob(finderConfig.path).flatMap { file =>
-        val tempFile = file.parent / s"${file.name}.tmp"
-        val replaceFunctions = finderConfig.conversions.map {
-          case (k, v) =>
-            (s: String) =>
-              k.r.findFirstIn(s) match {
-                case Some(_) => v
-                case None => s
-              }
-        }
-        val results = file.lines.flatMap { line =>
-          val modified = replaceFunctions.foldLeft(line)((acc, f) => f(acc))
-          modified >>: tempFile
-          if (line.equals(modified)) {
-            None
-          } else {
-            Some(OperationResult(finderConfig, modified))
-          }
-        }
-        file.delete()
-        tempFile.renameTo(file.name)
-        results
-      }
     }
   }
 }
