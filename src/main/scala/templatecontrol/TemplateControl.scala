@@ -2,7 +2,6 @@ package templatecontrol
 
 import better.files._
 import com.typesafe.config.Config
-import templatecontrol.stub.StubGithubClient
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -19,13 +18,13 @@ object TemplateControl {
     new LiveGithubClient(user, oauthToken, remote, upstream)
   }
 
-  private def stubGithubClient(github: GithubConfig): GithubClient = {
-    val user = github.credentials.user
-    val oauthToken = github.credentials.oauthToken
-    val remote = github.remote
-    val upstream = github.upstream
-    new StubGithubClient(user, oauthToken, remote, upstream)
-  }
+  //  private def stubGithubClient(github: GithubConfig): GithubClient = {
+  //    val user = github.credentials.user
+  //    val oauthToken = github.credentials.oauthToken
+  //    val remote = github.remote
+  //    val upstream = github.upstream
+  //    new StubGithubClient(user, oauthToken, remote, upstream)
+  //  }
 
   def main(args: Array[String]): Unit = {
     import com.typesafe.config.ConfigFactory
