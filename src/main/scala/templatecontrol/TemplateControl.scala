@@ -66,8 +66,8 @@ object TemplateControl {
             }
           case BranchFailure(branch, e) =>
             sb ++= s"https://github.com/$upstream/$name/tree/$branch - FAILURE\n"
-            sb ++= exceptionToString(e)
-
+            exceptionToString(sb, e)
+            sb.append("\n")
           case _ =>
           // do nothing
         }
@@ -75,17 +75,20 @@ object TemplateControl {
 
       case ProjectFailure(name, e) =>
         val sb = new StringBuilder(s"$name: FAILURE\n")
-        sb ++= exceptionToString(e)
+        exceptionToString(sb, e)
+        sb.append("\n")
         sb.toString
 
     }
     println(s.mkString(""))
   }
 
-  def exceptionToString(e: Exception): String = {
-    val errors = new java.io.StringWriter()
-    e.printStackTrace(new java.io.PrintWriter(errors))
-    errors.toString
+  def exceptionToString(sb: StringBuilder, e: Exception): Unit = {
+    sb.append("    Exception: ")
+    sb.append(e.getMessage)
+    sb.append("\n")
+    //val errors = new java.io.StringWriter()
+    //e.printStackTrace(new java.io.PrintWriter(errors))
   }
 
   def tempDirectory(baseDirectory: File): File = {

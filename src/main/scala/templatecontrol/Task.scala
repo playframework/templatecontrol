@@ -85,8 +85,10 @@ class FindReplaceTask(c: Config) extends Task {
               }
         }
         val results = file.lines.flatMap { line =>
+          import better.files.Dsl.SymbolicOperations
+
           val modified = replaceFunctions.foldLeft(line)((acc, f) => f(acc))
-          tempFile.append(modified)
+          modified >>: tempFile
           if (line.equals(modified)) {
             None
           } else {
