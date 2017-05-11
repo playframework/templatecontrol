@@ -25,19 +25,29 @@ class CopyTask(c: Config) extends Task {
 
   private val copyConfigs: Seq[CopyConfig] = c.as[Seq[CopyConfig]]("copy")
 
+  private def findTemplate(template: String): File = {
+    import java.nio.file.Paths
+    val file = File(Paths.get("")) / "templates" / template
+    if (file.exists) {
+      file
+    } else {
+      throw new IllegalStateException(s"Cannot find ${template} in ${file.path.toAbsolutePath}")
+    }
+  }
+
   def execute(workingDir: File): Seq[OperationResult] = {
     copyConfigs.flatMap { c =>
-      val templateStream = Option(this.getClass.getResourceAsStream(c.template)).getOrElse(
-        throw new IllegalStateException(s"Cannot find resource for ${c.template}")
-      )
-      val dest: File = s"${workingDir.path.toAbsolutePath}${c.path}".toFile
+      val source: File = findTemplate(c.template)
+      val dest: File = file"${workingDir.path.toAbsolutePath}${c.path}"
       blocking {
-        for {
-          in <- templateStream.autoClosed
-          out <- dest.newOutputStream.autoClosed
-        } in.pipeTo(out)
-        val modified = s"wrote ${c.path}"
-        Some(OperationResult(c, modified))
+        if (source.isSameContentAs(dest)) {
+          None
+        } else {
+          source.copyTo(dest, overwrite = true)
+          val modified = s"wrote ${c.path}"
+          Some(OperationResult(c, modified))
+        }
+
       }
     }
   }
@@ -75,6 +85,8 @@ class FindReplaceTask(c: Config) extends Task {
               }
         }
         val results = file.lines.flatMap { line =>
+          import better.files.Dsl.SymbolicOperations
+
           val modified = replaceFunctions.foldLeft(line)((acc, f) => f(acc))
           modified >>: tempFile
           if (line.equals(modified)) {

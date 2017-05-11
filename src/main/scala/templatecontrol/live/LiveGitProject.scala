@@ -4,7 +4,7 @@ import better.files.File
 import com.jcraft.jsch.Session
 import org.eclipse.jgit.api._
 import org.eclipse.jgit.dircache.DirCache
-import org.eclipse.jgit.lib.{Ref, StoredConfig}
+import org.eclipse.jgit.lib.Ref
 import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.transport.OpenSshConfig.Host
 import org.eclipse.jgit.transport._
@@ -60,8 +60,6 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
     git
   }
-
-  private val config: StoredConfig = git.getRepository.getConfig
 
   override def addWebhook(name: String, config: Map[String, String]): GHHook = {
     val events = Set(GHEvent.PUSH)
@@ -216,9 +214,9 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   override def close(): Unit = git.close()
 
-  private def logging[T <: OperationResult](result: T): T = {
-    val messages = result.getMessages
-    logger.info(s"messages: $messages")
-    result
-  }
+  //  private def logging[T <: OperationResult](result: T): T = {
+  //    val messages = result.getMessages
+  //    logger.info(s"messages: $messages")
+  //    result
+  //  }
 }
