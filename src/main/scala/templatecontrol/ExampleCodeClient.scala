@@ -21,7 +21,7 @@ class ExampleCodeClient(exampleCodeServiceUrl: java.net.URL) {
 
   def call(keywords: Seq[String]): Future[Seq[ProjectTemplate]] = {
     val keywordParams = keywords.map("keyword" -> _)
-    wsClient.url(exampleCodeServiceUrl.toString).withQueryString(keywordParams: _*).get().map { response =>
+    wsClient.url(exampleCodeServiceUrl.toString).withQueryStringParameters(keywordParams: _*).get().map { response =>
       Json.fromJson[Seq[ProjectTemplate]](response.json) match {
         case JsSuccess(value, _) =>
           value

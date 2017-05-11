@@ -10,7 +10,7 @@ libraryDependencies +="com.typesafe" % "config" % "1.3.1"
 libraryDependencies +="com.iheart" %% "ficus" % "1.2.7"
 
 // https://github.com/qos-ch/logback
-libraryDependencies +="ch.qos.logback" % "logback-classic" % "1.1.7"
+libraryDependencies +="ch.qos.logback" % "logback-classic" % "1.2.3"
 
 // https://github.com/pathikrit/better-files
 libraryDependencies +="com.github.pathikrit" %% "better-files"  % "2.16.0"
@@ -24,7 +24,7 @@ libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
 // http://www.scalactic.org/user_guide
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 
-libraryDependencies += "com.typesafe.play" %% "play-ahc-ws-standalone" % "1.0.0-M3"
+libraryDependencies += "com.typesafe.play" %% "play-ahc-ws-standalone" % "1.0.0-M10"
 
 // http://software.clapper.org/scalasti/
 libraryDependencies += "org.clapper" %% "scalasti" % "2.1.2"
