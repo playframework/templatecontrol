@@ -165,11 +165,12 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
       .call()
   }
 
-  override def push(name: String): Iterable[PushResult] = {
+  override def push(name: String, force: Boolean): Iterable[PushResult] = {
     logger.debug(s"push: $remote")
 
     val spec = new RefSpec(s"refs/heads/$name:refs/heads/$name")
     val results = git.push()
+      .setForce(force)
       .setRemote("origin")
       .setRefSpecs(spec)
       .call().asScala

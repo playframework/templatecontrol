@@ -143,7 +143,7 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
       .call()
   }
 
-  override def push(name: String): Iterable[PushResult] = {
+  override def push(name: String, force: Boolean): Iterable[PushResult] = {
     logger.info(s"push: $remote")
 
     Seq.empty
