@@ -235,8 +235,8 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
         gitRepo.commit(message)
 
         // Push this new branch to the remote repository
-        // "git push origin templatecontrol-2.5.x"
-        gitRepo.push(localBranchName)
+        // "git push -f origin templatecontrol-2.5.x"
+        gitRepo.push(localBranchName, force = true)
 
         // And finally, create a pull request
         // from the remote github project ("wsargent/play-streaming-java")
