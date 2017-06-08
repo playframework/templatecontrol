@@ -6,9 +6,6 @@ import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
 
-trait OperationConfig {
-  def path: String
-}
 
 /**
  * Sets up a map between the branch and the file search and replace operations specific to that branch.
