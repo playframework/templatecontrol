@@ -9,8 +9,18 @@ import net.ceedubs.ficus.readers.ValueReader
 
 import scala.concurrent.blocking
 
+trait TaskConfig {
+  def path: String
+}
+
+case class TaskResult(config: TaskConfig, modified: String)
+
 trait Task {
-  def execute(workingDir: File): Seq[OperationResult]
+  def execute(path: File): Seq[TaskResult]
+}
+
+object Task {
+  def apply(f: File => Seq[TaskResult]): Task = (path: File) => f.apply(path)
 }
 
 class CopyTask(c: Config) extends Task {
@@ -21,7 +31,7 @@ class CopyTask(c: Config) extends Task {
     * @param path the file to search for
     * @param template the template contents to put into the file.
     */
-  case class CopyConfig(path: String, template: String) extends OperationConfig
+  case class CopyConfig(path: String, template: String) extends TaskConfig
 
   private val copyConfigs: Seq[CopyConfig] = c.as[Seq[CopyConfig]]("copy")
 
@@ -35,7 +45,7 @@ class CopyTask(c: Config) extends Task {
     }
   }
 
-  def execute(workingDir: File): Seq[OperationResult] = {
+  def execute(workingDir: File): Seq[TaskResult] = {
     copyConfigs.flatMap { c =>
       val source: File = findTemplate(c.template)
       val dest: File = file"${workingDir.path.toAbsolutePath}${c.path}"
@@ -45,9 +55,8 @@ class CopyTask(c: Config) extends Task {
         } else {
           source.copyTo(dest, overwrite = true)
           val modified = s"wrote ${c.path}"
-          Some(OperationResult(c, modified))
+          Some(TaskResult(c, modified))
         }
-
       }
     }
   }
@@ -61,7 +70,7 @@ class FindReplaceTask(c: Config) extends Task {
     * @param path     a glob pattern from http://docs.oracle.com/javase/tutorial/essential/io/fileOps.html#glob
     * @param conversions a mapping from a search substring to the text line conversion.
     */
-  case class FinderConfig(path: String, conversions: Map[String, String]) extends OperationConfig
+  case class FinderConfig(path: String, conversions: Map[String, String]) extends TaskConfig
 
   implicit val finderConfigReader: ValueReader[FinderConfig] = ValueReader.relative { c =>
     FinderConfig(
@@ -72,7 +81,7 @@ class FindReplaceTask(c: Config) extends Task {
 
   private val finderConfigs: Seq[FinderConfig] = c.as[Seq[FinderConfig]]("finders")
 
-   def execute(workingDir: File): Seq[OperationResult] = {
+   def execute(workingDir: File): Seq[TaskResult] = {
     finderConfigs.flatMap { finderConfig =>
       workingDir.glob(finderConfig.path).flatMap { file =>
         val tempFile = file.parent / s"${file.name}.tmp"
@@ -92,7 +101,7 @@ class FindReplaceTask(c: Config) extends Task {
           if (line.equals(modified)) {
             None
           } else {
-            Some(OperationResult(finderConfig, modified))
+            Some(TaskResult(finderConfig, modified))
           }
         }
         file.delete()
