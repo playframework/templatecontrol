@@ -15,23 +15,15 @@ object TemplateControl {
     val oauthToken = github.credentials.oauthToken
     val remote = github.remote
     val upstream = github.upstream
-    new LiveGithubClient(user, oauthToken, remote, upstream)
+    val useSshAgent = github.useSshAgent
+    new LiveGithubClient(user, oauthToken, remote, upstream, useSshAgent)
   }
-
-  //  private def stubGithubClient(github: GithubConfig): GithubClient = {
-  //    val user = github.credentials.user
-  //    val oauthToken = github.credentials.oauthToken
-  //    val remote = github.remote
-  //    val upstream = github.upstream
-  //    new StubGithubClient(user, oauthToken, remote, upstream)
-  //  }
 
   def main(args: Array[String]): Unit = {
     import com.typesafe.config.ConfigFactory
 
     val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
     val client = liveGithubClient(config.github)
-    //val client = stubGithubClient(config.github)
 
     val control = new TemplateControl(config, client)
 
@@ -125,7 +117,8 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
   private val webhook = config.github.webhook
 
   private def tasks(config: Config): Seq[Task] = {
-    Seq(new CopyTask(config),new FindReplaceTask(config))
+    //Seq(new CopyTask(config),new FindReplaceTask(config))
+    Seq.empty
   }
 
   def run(tempDirectory: File, templates: Seq[String]): Future[Seq[ProjectResult]] = {
