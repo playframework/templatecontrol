@@ -1,5 +1,18 @@
 scalaVersion := "2.12.2"
 
+// (╯°□°）╯︵ ┻━┻ https://github.com/scala/bug/issues/10270#issuecomment-295338382
+scalacOptions := {
+  val orig = scalacOptions.value
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, 12)) => orig.map {
+      case "-Xlint"               => "-Xlint:-unused,_"
+      case "-Ywarn-unused-import" => "-Ywarn-unused:imports,-patvars,-privates,-locals,-params,-implicits"
+      case other                  => other
+    }
+    case _             => orig
+  }
+}
+
 // For Ficus
 resolvers += Resolver.jcenterRepo
 
