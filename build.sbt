@@ -38,3 +38,5 @@ libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
 
 libraryDependencies += "com.typesafe.play" %% "play-ahc-ws-standalone" % "1.0.0"
+
+libraryDependencies += "com.typesafe.play" %% "play-ws-standalone-json" % "1.0.0"

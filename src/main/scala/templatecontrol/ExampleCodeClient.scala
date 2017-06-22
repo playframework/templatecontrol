@@ -2,11 +2,12 @@ package templatecontrol
 
 import play.api.libs.json._
 import play.api.libs.ws.ahc.StandaloneAhcWSClient
+import play.api.libs.ws.JsonBodyReadables
 
 /**
  * A WS client that downloads the list of available projects
  */
-class ExampleCodeClient(exampleCodeServiceUrl: java.net.URL) {
+class ExampleCodeClient(exampleCodeServiceUrl: java.net.URL) extends JsonBodyReadables {
   import akka.actor.ActorSystem
   import akka.stream.ActorMaterializer
   import scala.concurrent.Future
@@ -22,7 +23,7 @@ class ExampleCodeClient(exampleCodeServiceUrl: java.net.URL) {
   def call(keywords: Seq[String]): Future[Seq[ProjectTemplate]] = {
     val keywordParams = keywords.map("keyword" -> _)
     wsClient.url(exampleCodeServiceUrl.toString).withQueryStringParameters(keywordParams: _*).get().map { response =>
-      Json.fromJson[Seq[ProjectTemplate]](response.json) match {
+      Json.fromJson[Seq[ProjectTemplate]](response.body[JsValue]) match {
         case JsSuccess(value, _) =>
           value
         case JsError(e) =>
