@@ -16,7 +16,11 @@ import net.ceedubs.ficus.readers.ValueReader
  */
 case class BranchConfig(name: String, config: Config)
 
-case class GithubConfig(upstream: String, remote: String, credentials: GithubCredentialsConfig, webhook: GithubWebhookConfig)
+case class GithubConfig(upstream: String,
+                        remote: String,
+                        credentials: GithubCredentialsConfig,
+                        webhook: GithubWebhookConfig,
+                        useSshAgent: Boolean)
 
 case class GithubWebhookConfig(name: String, config: Map[String, String])
 

@@ -29,10 +29,16 @@ libraryDependencies +="ch.qos.logback" % "logback-classic" % "1.2.3"
 libraryDependencies +="com.github.pathikrit" %% "better-files"  % "3.0.0"
 
 // https://eclipse.org/jgit/
-libraryDependencies +=  "org.eclipse.jgit" % "org.eclipse.jgit" % "4.5.0.201609210915-r"
+libraryDependencies +=  "org.eclipse.jgit" % "org.eclipse.jgit" % "4.7.0.201704051617-r"
 
- // https://github.com/kohsuke/github-api
-libraryDependencies += "org.kohsuke" % "github-api" % "1.77"
+// hook into ssh-agent
+// https://github.com/ymnk/jsch-agent-proxy
+libraryDependencies += "com.jcraft" % "jsch.agentproxy.sshagent" % "0.0.9"
+libraryDependencies += "com.jcraft" % "jsch.agentproxy.usocket-jna" % "0.0.9"
+libraryDependencies += "com.jcraft" % "jsch.agentproxy.jsch" % "0.0.9"
+
+// https://github.com/kohsuke/github-api
+libraryDependencies += "org.kohsuke" % "github-api" % "1.85"
 
 // http://www.scalactic.org/user_guide
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
