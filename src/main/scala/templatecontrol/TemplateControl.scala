@@ -16,7 +16,6 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
 
   private def tasks(config: Config): Seq[Task] = {
     Seq(new CopyTask(config),new FindReplaceTask(config))
-    //Seq.empty
   }
 
   def run(tempDirectory: File, templates: Seq[String]): Future[Seq[ProjectResult]] = {

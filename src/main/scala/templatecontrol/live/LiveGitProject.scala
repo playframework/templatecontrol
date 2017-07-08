@@ -34,16 +34,6 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   private val git: Git = {
     def transportConfigCallback = {
-
-      //      val sshSessionFactory = if (useSshAgent) {
-      //        new SSHAgentFactory
-      //      } else {
-      //        new JschConfigSessionFactory() {
-      //          override protected def configure(host: Host, session: Session) = {}
-      //        }
-      //      }
-
-
       val sshSessionFactory = new SSHAgentFactory
 
       new TransportConfigCallback() {
