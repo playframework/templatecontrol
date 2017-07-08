@@ -6,111 +6,6 @@ import com.typesafe.config.Config
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-<<<<<<< HEAD
-=======
-object TemplateControl {
-  import scala.concurrent.ExecutionContext.Implicits._
-
-  private def liveGithubClient(github: GithubConfig): GithubClient = {
-    import templatecontrol.live.LiveGithubClient
-    val user = github.credentials.user
-    val oauthToken = github.credentials.oauthToken
-    val remote = github.remote
-    val upstream = github.upstream
-    val useSshAgent = github.useSshAgent
-    new LiveGithubClient(user, oauthToken, remote, upstream, useSshAgent)
-  }
-
-  def main(args: Array[String]): Unit = {
-    import com.typesafe.config.ConfigFactory
-
-    val config = TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
-    val client = liveGithubClient(config.github)
-
-    val control = new TemplateControl(config, client)
-
-    //    val exampleCodeClient = new ExampleCodeClient(config.exampleCodeServiceUrl)
-    //    exampleCodeClient.call().map { maybeData =>
-    //      maybeData.foreach { data =>
-    //        println(s"data = ${data}")
-    //      }
-    //    }.andThen {
-    //      case _ => exampleCodeClient.close()
-    //    }
-    val names = config.templates
-    val reports = control.run(tempDirectory(config.baseDirectory), names).map { results =>
-      val upstream = config.github.upstream
-      report(upstream, results)
-    }
-
-    Await.result(reports, Duration.Inf)
-  }
-
-  def report(upstream: String, results: Seq[ProjectResult]): Unit = {
-    val s = results.map {
-      case ProjectSuccess(name, branches) =>
-        val sb = new StringBuilder
-        branches.foreach {
-          case BranchSuccess(branch, replacements) if replacements.nonEmpty =>
-            sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
-            replacements.foreach {
-              case OperationResult(finder, modified) =>
-                sb ++= s"    ${finder.path}:\n"
-                sb ++= s"       $modified\n"
-            }
-          case BranchFailure(branch, e) =>
-            sb ++= s"https://github.com/$upstream/$name/tree/$branch - FAILURE\n"
-            exceptionToString(sb, e)
-            sb.append("\n")
-          case _ =>
-          // do nothing
-        }
-        sb.toString()
-
-      case ProjectFailure(name, e) =>
-        val sb = new StringBuilder(s"$name: FAILURE\n")
-        exceptionToString(sb, e)
-        sb.append("\n")
-        sb.toString
-
-    }
-    println(s.mkString(""))
-  }
-
-  def exceptionToString(sb: StringBuilder, e: Exception): Unit = {
-    sb.append("    Exception: ")
-    sb.append(e.getMessage)
-    sb.append("\n")
-    //val errors = new java.io.StringWriter()
-    //e.printStackTrace(new java.io.PrintWriter(errors))
-  }
-
-  def tempDirectory(baseDirectory: File): File = {
-    import java.nio.file.attribute.PosixFilePermissions
-    import java.nio.file.Files
-
-    val perms = PosixFilePermissions.fromString("rwx------")
-    val attrs = PosixFilePermissions.asFileAttribute(perms)
-    val tempFile: File = Files.createTempDirectory(baseDirectory.toJava.toPath, "", attrs)
-
-    // Note this only happens if you don't interrupt or crash the JVM in some way.
-    tempFile.toJava.deleteOnExit()
-    tempFile
-  }
-
-  sealed trait BranchResult { def name: String }
-  case class BranchSuccess(name: String, results: Seq[OperationResult]) extends BranchResult
-  case class BranchFailure(name: String, exception: Exception) extends BranchResult
-
-  sealed trait ProjectResult { def name: String }
-  case class ProjectFailure(name: String, exception: Exception) extends ProjectResult
-  case class ProjectSuccess(name: String, results: Seq[BranchResult]) extends ProjectResult
-
-}
-
-case class OperationResult(config: OperationConfig, modified: String)
-
->>>>>>> ssh-agent
 class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
   import scala.concurrent.blocking
   import scala.concurrent.ExecutionContext.Implicits._
@@ -120,8 +15,8 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
   private val webhook = config.github.webhook
 
   private def tasks(config: Config): Seq[Task] = {
-    //Seq(new CopyTask(config),new FindReplaceTask(config))
-    Seq.empty
+    Seq(new CopyTask(config),new FindReplaceTask(config))
+    //Seq.empty
   }
 
   def run(tempDirectory: File, templates: Seq[String]): Future[Seq[ProjectResult]] = {
@@ -259,7 +154,8 @@ object TemplateControl {
     val oauthToken = github.credentials.oauthToken
     val remote = github.remote
     val upstream = github.upstream
-    new LiveGithubClient(user, oauthToken, remote, upstream)
+    val useSshAgent = github.useSshAgent
+    new LiveGithubClient(user, oauthToken, remote, upstream, useSshAgent)
   }
 
   //  private def stubGithubClient(github: GithubConfig): GithubClient = {
