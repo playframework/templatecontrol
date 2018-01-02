@@ -41,7 +41,7 @@ class CopyTask(c: Config) extends Task {
     if (file.exists) {
       file
     } else {
-      throw new IllegalStateException(s"Cannot find ${template} in ${file.path.toAbsolutePath}")
+      throw new IllegalStateException(s"Cannot find $template in ${file.path.toAbsolutePath}")
     }
   }
 
@@ -64,6 +64,8 @@ class CopyTask(c: Config) extends Task {
 
 class FindReplaceTask(c: Config) extends Task {
 
+  private val logger = org.slf4j.LoggerFactory.getLogger(classOf[FindReplaceTask])
+
   /**
     * Sets up a file finder glob to text search mappings.
     *
@@ -85,6 +87,8 @@ class FindReplaceTask(c: Config) extends Task {
     finderConfigs.flatMap { finderConfig =>
       workingDir.glob(finderConfig.path).flatMap { file =>
         val tempFile = file.parent / s"${file.name}.tmp"
+
+        logger.info(s"The following substitutions will be made: ${finderConfig.conversions} for file $file")
         val replaceFunctions = finderConfig.conversions.map {
           case (k, v) =>
             (s: String) =>
