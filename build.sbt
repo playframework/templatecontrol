@@ -26,7 +26,7 @@ libraryDependencies +="com.iheart" %% "ficus" % "1.4.0"
 libraryDependencies +="ch.qos.logback" % "logback-classic" % "1.2.3"
 
 // https://github.com/pathikrit/better-files
-libraryDependencies +="com.github.pathikrit" %% "better-files"  % "3.0.0"
+libraryDependencies +="com.github.pathikrit" %% "better-files"  % "3.4.0"
 
 // https://eclipse.org/jgit/
 libraryDependencies +=  "org.eclipse.jgit" % "org.eclipse.jgit" % "4.5.0.201609210915-r"
