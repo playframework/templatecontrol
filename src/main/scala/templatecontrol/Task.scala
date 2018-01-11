@@ -108,6 +108,9 @@ class FindReplaceTask(c: Config) extends Task {
             Some(TaskResult(finderConfig, modified))
           }
         }
+        // Preserve file permissions
+        tempFile.setPermissions(file.permissions)
+
         file.delete()
         tempFile.renameTo(file.name)
         results
