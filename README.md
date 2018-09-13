@@ -13,6 +13,9 @@ Because this is new, it is still up to a human to identify the pull request as p
 
 ## Prerequisites
 
+
+### Personal Access Token
+
 You will need to configure Github with a personal access token to get this working, because it does push branches into your personal fork of the templates in order to create the pull request.
 
 You want a personal access token with "repo" scope.
@@ -27,7 +30,13 @@ export TCONTROL_GITHUB_USER=wsargent
 export TCONTROL_GITHUB_OAUTH=<personal access token>
 ```
 
+### Public Key for SSL access
+
 Template control will use `https` when interacting with the upstream repos and `git` protocol when interacting with your own forks. When using `git` protocol it relies on your public ssh key as expected, but for unknown reasons, this will only work if your pub key was not generated with a passphrase. 
+
+### WebHook
+
+As part of the whole process, the program will check the existence of a webhook to publish content in Lightbend TechHub. This will fail if you are not an owner on Playframework organisation in GitHub.
 
 ## Running
 
