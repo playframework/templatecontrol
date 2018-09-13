@@ -27,6 +27,8 @@ export TCONTROL_GITHUB_USER=wsargent
 export TCONTROL_GITHUB_OAUTH=<personal access token>
 ```
 
+Template control will use `https` when interacting with the upstream repos and `git` protocol when interacting with your own forks. When using `git` protocol it relies on your public ssh key as expected, but for unknown reasons, this will only work if your pub key was not generated with a passphrase. 
+
 ## Running
 
 Once you've got the credentials, there's a single main method:
