@@ -13,6 +13,9 @@ Because this is new, it is still up to a human to identify the pull request as p
 
 ## Prerequisites
 
+
+### Personal Access Token
+
 You will need to configure Github with a personal access token to get this working, because it does push branches into your personal fork of the templates in order to create the pull request.
 
 You want a personal access token with "repo" scope.
@@ -27,12 +30,41 @@ export TCONTROL_GITHUB_USER=wsargent
 export TCONTROL_GITHUB_OAUTH=<personal access token>
 ```
 
+### Public Key for SSL access
+
+Template control will use `https` when interacting with the upstream repos and `git` protocol when interacting with your own forks. When using `git` protocol it relies on your public ssh key as expected, but for unknown reasons, this will only work if your pub key was not generated with a passphrase. 
+
+### WebHook
+
+As part of the whole process, the program will check the existence of a webhook to publish content in Lightbend TechHub. This will fail if you are not an owner on Playframework organisation in GitHub.
+
 ## Running
 
 Once you've got the credentials, there's a single main method:
 
 ```
 sbt run
+```
+
+### Skipping lines
+
+If you need to skip a line, you can add a `tc-skip` comment on the line you don't want to be replaced. 
+For example, in case you have a giter8 template with variables, you may want to leave them untouched. 
+
+The following line contains a giter8 variable, `$play_version$`,...
+```
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "$play_version$") 
+```
+this will be replaced by
+```
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.6.19") 
+```
+and that breaks the giter8 template. 
+
+
+If the line contains a `tc-skip`, it won't be touched, for example:
+```
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "$play_version$") // tc-skip
 ```
 
 ## License
