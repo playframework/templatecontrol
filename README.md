@@ -46,6 +46,27 @@ Once you've got the credentials, there's a single main method:
 sbt run
 ```
 
+### Skipping lines
+
+If you need to skip a line, you can add a `tc-skip` comment on the line you don't want to be replaced. 
+For example, in case you have a giter8 template with variables, you may want to leave them untouched. 
+
+The following line contains a giter8 variable, `$play_version$`,...
+```
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "$play_version$") 
+```
+this will be replaced by
+```
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.6.19") 
+```
+and that breaks the giter8 template. 
+
+
+If the line contains a `tc-skip`, it won't be touched, for example:
+```
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "$play_version$") // tc-skip
+```
+
 ## License
 
 This software is licensed under the Apache 2 license, quoted below.

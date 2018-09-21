@@ -93,6 +93,9 @@ class FindReplaceTask(c: Config) extends Task {
           case (k, v) =>
             (s: String) =>
               k.r.findFirstIn(s) match {
+                // keep line as is if it contains tc-skip (template control skip)
+                // that's particularly useful for giter8 templates that contains variables
+                case Some(_) if s.contains("tc-skip") => s
                 case Some(_) => v
                 case None => s
               }
