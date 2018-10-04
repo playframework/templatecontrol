@@ -153,7 +153,8 @@ object TemplateControl {
     val oauthToken = github.credentials.oauthToken
     val remote = github.remote
     val upstream = github.upstream
-    new LiveGithubClient(user, oauthToken, remote, upstream)
+    val useSshAgent = github.useSshAgent
+    new LiveGithubClient(user, oauthToken, remote, upstream, useSshAgent)
   }
 
   //  private def stubGithubClient(github: GithubConfig): GithubClient = {

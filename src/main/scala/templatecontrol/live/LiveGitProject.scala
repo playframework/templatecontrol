@@ -12,7 +12,7 @@ import org.kohsuke.github.{GHEvent, GHHook, GHRepository}
 import templatecontrol.GitProject
 
 
-class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHRepository) extends GitProject {
+class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHRepository, useSshAgent: Boolean) extends GitProject {
   import scala.collection.JavaConverters._
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
@@ -34,9 +34,7 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   private val git: Git = {
     def transportConfigCallback = {
-      val sshSessionFactory = new JschConfigSessionFactory() {
-        override protected def configure(host: Host, session: Session) = {}
-      }
+      val sshSessionFactory = new SSHAgentFactory
 
       new TransportConfigCallback() {
         override def configure(transport: Transport): Unit = {
