@@ -13,19 +13,17 @@ Because this is new, it is still up to a human to identify the pull request as p
 
 ## Prerequisites
 
-### Hub App
+### Hub
 
-You need to have Hub App installed, see [https://hub.github.com/](https://hub.github.com/).
+You need to have Hub installed, see [https://hub.github.com/](https://hub.github.com/).
 
 ### Project forks
 
-You need make forks for each of the projects. 
+You need to have forks for each of the repositories. 
 
-For that you can use the scripts `scripts/create-forks-play.sh` and `scripts-create-forks-lagom.sh`.
+For that you can use the scripts `templates/create-forks-play.sh` and `templates/create-forks-lagom.sh`.
 
-Refer to [Scripts README](templates/README.md) for more details.
-
-(Note: Template Control for Lagom is work in progress. Currently we only have the scripts to create branches and forks.)
+See [templates/README.md](templates/README.md) for more details.
 
 ### Personal Access Token
 
