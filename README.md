@@ -57,6 +57,14 @@ Once you've got the credentials, there's a single main method:
 sbt run
 ```
 
+or 
+
+```
+sbt run --no-push
+```
+
+When using flag `--no-push`, no branch will be pushed and no PRs will be created on GitHub. You can then inspect the modified projects.
+
 ### Skipping lines
 
 If you need to skip a line, you can add a `tc-skip` comment on the line you don't want to be replaced. 

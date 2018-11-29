@@ -33,7 +33,8 @@ case class GithubCredentialsConfig(user: String, oauthToken: String)
 case class TemplateControlConfig(baseDirectory: File,
                                  github: GithubConfig,
                                  templates: Seq[String],
-                                 branchConfigs: Seq[BranchConfig])
+                                 branchConfigs: Seq[BranchConfig],
+                                 noPush: Boolean = false)
 
 object TemplateControlConfig {
 
