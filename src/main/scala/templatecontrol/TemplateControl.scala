@@ -77,8 +77,10 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
 
   private def projectControl(templateDir: File, templateName: String)
                              (branchFunction: GitProject => Seq[BranchResult]): ProjectResult = {
+
+    logger.info(s"template dir: $templateDir")
     if (templateDir.exists) {
-      throw new IllegalStateException(s"$templateDir already exists!")
+      templateDir.delete()
     }
 
     // Clone a git repo for this template.
@@ -238,7 +240,10 @@ object TemplateControl {
     val perms = PosixFilePermissions.fromString("rwx------")
     val attrs = PosixFilePermissions.asFileAttribute(perms)
 
-    val tempFile: File = Files.createTempDirectory(baseDirectory.toJava.toPath, "", attrs)
+    logger.info(s"base dir: $baseDirectory")
+    val tempFile: File =
+      if (!baseDirectory.isDirectory) Files.createDirectory(baseDirectory.toJava.toPath, attrs)
+      else baseDirectory
 
     // Note this only happens if you don't interrupt or crash the JVM in some way.
     tempFile.toJava.deleteOnExit()
