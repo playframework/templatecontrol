@@ -52,7 +52,7 @@ or
 sbt run --no-push
 ```
 
-When using flag `--dry-run`, no PRs will be sent to GitHub. You can then inspect the modified projects.
+When using flag `--no-push`, no branch will be pushed and no PRs will be created on GitHub. You can then inspect the modified projects.
 
 ### Skipping lines
 
