@@ -238,8 +238,6 @@ object TemplateControl {
     val perms = PosixFilePermissions.fromString("rwx------")
     val attrs = PosixFilePermissions.asFileAttribute(perms)
 
-    if (!baseDirectory.isDirectory) baseDirectory.toJava.mkdirs()
-
     val tempFile: File = Files.createTempDirectory(baseDirectory.toJava.toPath, "", attrs)
 
     // Note this only happens if you don't interrupt or crash the JVM in some way.
