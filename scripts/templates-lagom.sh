@@ -1,6 +1,6 @@
 #!/bin/bash
 
-declare -a templates=( 
+declare -a lagom_templates=( 
    "online-auction-scala"
    "online-auction-java"
    "lagom-java-sbt-chirper-example"
@@ -9,4 +9,4 @@ declare -a templates=(
    "lagom-java.g8"
   )
   
-github=git@github.com:lagom
+lagom_github=git@github.com:lagom

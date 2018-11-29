@@ -1,6 +1,6 @@
 #!/bin/bash
 
-declare -a templates=( 
+declare -a play_templates=( 
    "play-java-chatroom-example"
    "play-java-compile-di-example"
    "play-java-dagger2-example"
@@ -33,4 +33,4 @@ declare -a templates=(
    "play-scala-seed.g8"
   )
   
-github=git@github.com:playframework
+play_github=git@github.com:playframework
