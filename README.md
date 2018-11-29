@@ -46,6 +46,14 @@ Once you've got the credentials, there's a single main method:
 sbt run
 ```
 
+or 
+
+```
+sbt run --dry-run
+```
+
+When using flag `--dry-run`, no PRs will be sent to GitHub. You can then inspect the modified projects.
+
 ### Skipping lines
 
 If you need to skip a line, you can add a `tc-skip` comment on the line you don't want to be replaced. 
