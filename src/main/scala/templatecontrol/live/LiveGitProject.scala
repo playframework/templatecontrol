@@ -84,7 +84,9 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
                   |$message
                   |```
           """.stripMargin
-    upstream.createPullRequest(title, head, base, body)
+    upstream
+      .createPullRequest(title, head, base, body)
+      .setLabels("merge-when-green", "template-control")
   }
 
   override def fetch(): Unit = {
