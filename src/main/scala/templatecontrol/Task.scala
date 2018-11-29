@@ -50,6 +50,9 @@ class CopyTask(c: Config) extends Task {
       val source: File = findTemplate(c.template)
       val dest: File = file"${workingDir.path.toAbsolutePath}${c.path}"
       blocking {
+        // create file if non-existent
+        if (dest.notExists) dest.createFile()
+
         if (source.isSameContentAs(dest)) {
           None
         } else {
