@@ -49,7 +49,7 @@ sbt run
 or 
 
 ```
-sbt run --dry-run
+sbt run --no-push
 ```
 
 When using flag `--dry-run`, no PRs will be sent to GitHub. You can then inspect the modified projects.

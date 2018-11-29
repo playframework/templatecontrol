@@ -19,21 +19,21 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     Seq(new CopyTask(config),new FindReplaceTask(config))
   }
 
-  def run(tempDirectory: File, templates: Seq[String], dryRun: Boolean): Future[Seq[ProjectResult]] = {
+  def run(tempDirectory: File, templates: Seq[String], noPush: Boolean): Future[Seq[ProjectResult]] = {
     Future.sequence {
       templates.map { (templateName: String) =>
         val templateDir: File = tempDirectory / templateName
-        createTemplate(templateDir, templateName, dryRun)
+        createTemplate(templateDir, templateName, noPush)
       }
     }
   }
 
-  def createTemplate(templateDir: File, templateName: String, dryRun: Boolean): Future[ProjectResult] = Future {
+  def createTemplate(templateDir: File, templateName: String, noPush: Boolean): Future[ProjectResult] = Future {
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
         config.branchConfigs.map { branchConfig =>
-          branchControl(branchConfig, gitProject, dryRun) { t =>
+          branchControl(branchConfig, gitProject, noPush) { t =>
             t.flatMap(_.execute(templateDir))
           }
         }
@@ -98,7 +98,7 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     }
   }
 
-  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject, dryRun: Boolean)
+  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject, noPush: Boolean)
                            (branchFunction: (Seq[Task]) => Seq[TaskResult]): BranchResult = {
     val branchName: String = branchConfig.name
     try {
@@ -125,7 +125,7 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
         // "git commit -m $message"
         gitRepo.commit(message)
 
-        if (!dryRun) {
+        if (!noPush) {
           // Push this new branch to the remote repository
           // "git push -f origin templatecontrol-2.5.x"
           gitRepo.push(localBranchName, force = true)
@@ -174,9 +174,9 @@ object TemplateControl {
 
     val config =
       TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
-        .copy(dryRun = args.contains("--dry-run"))
+        .copy(noPush = args.contains("--no-push"))
 
-    logger.info("running dry-run: " + config.dryRun)
+    logger.info("running dry-run: " + config.noPush)
 
     val client = liveGithubClient(config.github)
     //val client = stubGithubClient(config.github)
@@ -184,7 +184,7 @@ object TemplateControl {
     val control = new TemplateControl(config, client)
 
     val names = config.templates
-    val reports = control.run(tempDirectory(config.baseDirectory), names, config.dryRun).map { results =>
+    val reports = control.run(tempDirectory(config.baseDirectory), names, config.noPush).map { results =>
       val upstream = config.github.upstream
       report(upstream, results)
     }

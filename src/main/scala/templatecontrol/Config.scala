@@ -34,7 +34,7 @@ case class TemplateControlConfig(baseDirectory: File,
                                  github: GithubConfig,
                                  templates: Seq[String],
                                  branchConfigs: Seq[BranchConfig],
-                                 dryRun: Boolean = false)
+                                 noPush: Boolean = false)
 
 object TemplateControlConfig {
 
