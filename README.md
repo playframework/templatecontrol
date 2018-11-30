@@ -5,7 +5,7 @@ This is an internal script to update the Play managed example templates, to auto
 For the given templates in `application.conf`, it will:
 
 * Clone the given template
-* Create a new branch based off upstream version (i.e. upstream/2.5.x)
+* Create a new branch based off upstream version (i.e. upstream/2.6.x)
 * Search and replace text to ensure that the relevant Play settings are correct, i.e. sbt-plugin, scalaVersion, sbt version, libraries etc.
 * Git add and push the branch, and create a pull request against the upstream repo.
 
@@ -13,6 +13,17 @@ Because this is new, it is still up to a human to identify the pull request as p
 
 ## Prerequisites
 
+### Hub
+
+You need to have Hub installed, see [https://hub.github.com/](https://hub.github.com/).
+
+### Project forks
+
+You need to have forks for each of the repositories. 
+
+For that you can use the scripts `templates/create-forks-play.sh` and `templates/create-forks-lagom.sh`.
+
+See [templates/README.md](templates/README.md) for more details.
 
 ### Personal Access Token
 
