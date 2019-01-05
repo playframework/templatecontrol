@@ -105,13 +105,13 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     val branchName: String = branchConfig.name
     try {
       // Create a local branch from the upstream template's branch.
-      // i.e. "git branch templatecontrol-2.5.x upstream/2.5.x"
+      // i.e. "git branch templatecontrol-2.7.x upstream/2.7.x"
       val localBranchName = s"templatecontrol-$branchName"
       val startPoint = s"upstream/$branchName"
       gitRepo.createBranch(localBranchName, startPoint)
 
       // Checkout the branch we just created:
-      // "git checkout templatecontrol-2.5.x"
+      // "git checkout templatecontrol-2.7.x"
       gitRepo.checkout(localBranchName)
 
       val results = branchFunction(tasks(branchConfig.config))
@@ -129,15 +129,15 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
 
         if (!noPush) {
           // Push this new branch to the remote repository
-          // "git push -f origin templatecontrol-2.5.x"
+          // "git push -f origin templatecontrol-2.7.x"
           gitRepo.push(localBranchName, force = true)
 
           // And finally, create a pull request
           // from the remote github project ("wsargent/play-streaming-java")
           // to upstream github project ("playframework/play-streaming-java")
           // "hub pull-request \
-          //   -h playframework/play-streaming-java:2.5.x \
-          //   -b wsargent/play-streaming-java:templatecontrol-2.5.x"
+          //   -h playframework/play-streaming-java:2.7.x \
+          //   -b wsargent/play-streaming-java:templatecontrol-2.7.x"
           gitRepo.pullRequest(localBranchName, branchName, message)
         }
       }
