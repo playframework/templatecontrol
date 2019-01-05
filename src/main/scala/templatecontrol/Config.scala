@@ -12,7 +12,7 @@ import net.ceedubs.ficus.readers.ValueReader
  *
  * We assume the mapping is specific to the branch, and not to the individual template.
  *
- * @param name    the branch name ("2.5.x")
+ * @param name    the branch name ("2.7.x")
  */
 case class BranchConfig(name: String, config: Config)
 
