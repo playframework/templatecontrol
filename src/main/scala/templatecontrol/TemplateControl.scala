@@ -153,11 +153,12 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
 object TemplateControl {
   import scala.concurrent.ExecutionContext.Implicits._
 
-  private def liveGithubClient(github: GithubConfig): GithubClient = {
+  private def liveGithubClient(config: TemplateControlConfig): GithubClient = {
     import templatecontrol.live.LiveGithubClient
+    val github = config.github
     val user = github.credentials.user
     val oauthToken = github.credentials.oauthToken
-    val remote = github.remote
+    val remote = if (config.noPush) github.upstream else github.remote
     val upstream = github.upstream
     new LiveGithubClient(user, oauthToken, remote, upstream)
   }
@@ -180,7 +181,7 @@ object TemplateControl {
 
     logger.info("running dry-run: " + config.noPush)
 
-    val client = liveGithubClient(config.github)
+    val client = liveGithubClient(config)
     //val client = stubGithubClient(config.github)
 
     val control = new TemplateControl(config, client)
