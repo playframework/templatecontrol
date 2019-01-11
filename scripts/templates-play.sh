@@ -1,6 +1,9 @@
 #!/bin/bash
 
 declare -a play_templates=(
+  "play-java-starter-example"
+  "play-scala-starter-example"
+
   "play-java-chatroom-example"
   "play-java-compile-di-example"
   "play-java-dagger2-example"
@@ -9,10 +12,9 @@ declare -a play_templates=(
   "play-java-forms-example"
   "play-java-jpa-example"
   "play-java-rest-api-example"
-  "play-java-seed.g8"
-  "play-java-starter-example"
   "play-java-streaming-example"
   "play-java-websocket-example"
+
   "play-scala-anorm-example"
   "play-scala-chatroom-example"
   "play-scala-compile-di-example"
@@ -23,13 +25,17 @@ declare -a play_templates=(
   "play-scala-macwire-di-example"
   "play-scala-rest-api-example"
   "play-scala-secure-session-example"
-  "play-scala-seed.g8"
   "play-scala-slick-example"
-  "play-scala-starter-example"
   "play-scala-streaming-example"
   "play-scala-tls-example"
   "play-scala-websocket-example"
+
+  "play-webgoat"
+  "play-java-seed.g8"
   "play-scala-seed.g8"
+
+  "play-scala-grpc-example"
+  "play-java-grpc-example"
 )
 
 play_github=git@github.com:playframework
