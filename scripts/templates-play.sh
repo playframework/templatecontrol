@@ -34,8 +34,8 @@ declare -a play_templates=(
   "play-java-seed.g8"
   "play-scala-seed.g8"
 
-  "akka-grpc-play-quickstart-scala"
-  "akka-grpc-play-quickstart-java"
+  "play-scala-grpc-example"
+  "play-java-grpc-example"
 )
 
 play_github=git@github.com:playframework
