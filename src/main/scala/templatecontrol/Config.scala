@@ -32,7 +32,6 @@ case class GithubCredentialsConfig(user: String, oauthToken: String)
  */
 case class TemplateControlConfig(baseDirectory: File,
                                  github: GithubConfig,
-                                 templates: Seq[String],
                                  branchConfigs: Seq[BranchConfig],
                                  noPush: Boolean = false)
 
@@ -52,7 +51,6 @@ object TemplateControlConfig {
     TemplateControlConfig(
       tc.as[String]("baseDirectory").toFile,
       tc.as[GithubConfig]("github"),
-      tc.as[Seq[String]]("templates"),
       tc.as[Seq[BranchConfig]]("branches")
     )
   }
