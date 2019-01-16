@@ -3,6 +3,7 @@ package templatecontrol
 import better.files._
 import com.typesafe.config.Config
 import org.slf4j.LoggerFactory
+import templatecontrol.model.{Project, Template}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -19,24 +20,27 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     Seq(new CopyTask(config),new FindReplaceTask(config))
   }
 
-  def run(tempDirectory: File, templates: Seq[String], noPush: Boolean): Future[Seq[ProjectResult]] = {
+  def run(tempDirectory: File, project: Project, noPush: Boolean): Future[Seq[ProjectResult]] = {
     Future.sequence {
-      templates.map { (templateName: String) =>
-        val templateDir: File = tempDirectory / templateName
-        createTemplate(templateDir, templateName, noPush)
+      project.templates.map { tpl =>
+        val templateDir: File = tempDirectory / project.branchName / tpl.name
+        createTemplate(templateDir, project.branchName, tpl.name, noPush)
       }
     }
   }
 
-  def createTemplate(templateDir: File, templateName: String, noPush: Boolean): Future[ProjectResult] = Future {
+  def createTemplate(templateDir: File, branchName: String, templateName: String, noPush: Boolean): Future[ProjectResult] = Future {
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
-        config.branchConfigs.map { branchConfig =>
-          branchControl(branchConfig, gitProject, noPush) { t =>
-            t.flatMap(_.execute(templateDir))
+        config.branchConfigs
+          // only apply for the given branch
+          .filter(branchConfig => branchConfig.name == branchName)
+          .map { branchConfig =>
+            branchControl(branchConfig, gitProject, noPush) { t =>
+              t.flatMap(_.execute(templateDir))
+            }
           }
-        }
       }
     }
   }
@@ -171,7 +175,8 @@ object TemplateControl {
   //  }
 
   val logger = LoggerFactory.getLogger(TemplateControl.getClass)
-  def main(args: Array[String]): Unit = {
+
+  def runFor(project: Project, args: Array[String]): Unit = {
     import com.typesafe.config.ConfigFactory
 
     val config =
@@ -185,11 +190,13 @@ object TemplateControl {
 
     val control = new TemplateControl(config, client)
 
-    val names = config.templates
-    val reports = control.run(tempDirectory(config.baseDirectory), names, config.noPush).map { results =>
-      val upstream = config.github.upstream
-      report(upstream, results)
-    }
+    val reports =
+      control
+        .run(tempDirectory(config.baseDirectory), project, config.noPush)
+        .map { results =>
+          val upstream = config.github.upstream
+          report(upstream, results)
+        }
 
     Await.result(reports, Duration.Inf)
   }

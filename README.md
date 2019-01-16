@@ -23,7 +23,7 @@ You need to have forks for each of the repositories.
 
 For that you can use the scripts `templates/create-forks-play.sh` and `templates/create-forks-lagom.sh`.
 
-See [templates/README.md](templates/README.md) for more details.
+See [templates/README.md](scripts/README.md) for more details.
 
 ### Personal Access Token
 
@@ -51,7 +51,7 @@ As part of the whole process, the program will check the existence of a webhook 
 
 ## Running
 
-Once you've got the credentials, there's a single main method:
+Once you've got the credentials, you can run it:
 
 ```
 sbt run
@@ -62,6 +62,19 @@ or
 ```
 sbt run --no-push
 ```
+
+You will be presented if a few options to choose from. Choose the `main` method you would like to run:
+
+```
+Multiple main classes detected, select one to run:
+
+ [1] templatecontrol.RunPlay
+ [2] templatecontrol.RunPlay26
+ [3] templatecontrol.RunPlay27
+
+Enter number:
+```
+
 
 When using flag `--no-push`, no branch will be pushed and no PRs will be created on GitHub. You can then inspect the modified projects.
 
