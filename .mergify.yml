@@ -3,19 +3,10 @@ pull_request_rules:
     conditions:
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
-      - label=merge-when-green
     actions:
       merge:
         method: merge
         strict: smart
-
-  - name: Delete the merge-when-green label after merge
-    conditions:
-      - merged
-      - label=merge-when-green
-    actions:
-      label:
-        remove: [merge-when-green]
 
   - name: Delete the PR branch after merge
     conditions:
