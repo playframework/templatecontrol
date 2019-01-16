@@ -43,11 +43,3 @@ pull_request_rules:
     actions:
       label:
         remove: [template-control]
-
-  - name: auto add wip
-    conditions:
-      # match a few flavours of wip
-      - title~=^(\[wip\]( |:) |\[WIP\]( |:) |wip( |:) |WIP( |:)).*
-    actions:
-      label:
-        add: ["block-merge"]
