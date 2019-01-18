@@ -3,9 +3,10 @@ pull_request_rules:
     conditions:
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
+      - label!=block-merge
     actions:
       merge:
-        method: merge
+        method: squash
         strict: smart
 
   - name: Delete the PR branch after merge
