@@ -50,6 +50,10 @@ class CopyTask(c: Config) extends Task {
       val source: File = findTemplate(c.template)
       val dest: File = file"${workingDir.path.toAbsolutePath}${c.path}"
       blocking {
+
+        // create parent directory if non-existent
+        dest.parent.createDirectories()
+
         // create file if non-existent
         if (dest.notExists) dest.createFile()
 
