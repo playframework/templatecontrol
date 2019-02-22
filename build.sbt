@@ -1,5 +1,3 @@
-scalaVersion := "2.12.8"
-
 scalacOptions ++= Seq(
   "-encoding",
   "UTF-8",

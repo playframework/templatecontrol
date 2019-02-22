@@ -1,0 +1,19 @@
+language: scala
+scala: 2.12.8
+
+before_install: curl -Ls https://git.io/jabba | bash && . ~/.jabba/jabba.sh
+install: jabba install adopt@1.8.192-12 && jabba use $_ && java -version
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.jabba/jdk
+    - $HOME/.sbt
+
+before_cache:
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+  - find $HOME/.sbt  -name "*.lock"               -delete
+
+notifications:
+  email:
+    on_success: never
