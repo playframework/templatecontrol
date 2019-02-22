@@ -15,12 +15,8 @@ trait TaskConfig {
 
 final case class TaskResult(config: TaskConfig, modified: String)
 
-trait Task {
+sealed trait Task {
   def execute(path: File): Seq[TaskResult]
-}
-
-object Task {
-  def apply(f: File => Seq[TaskResult]): Task = (path: File) => f.apply(path)
 }
 
 /**
