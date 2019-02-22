@@ -9,7 +9,7 @@ For the given templates in `application.conf`, it will:
 * Search and replace text to ensure that the relevant Play settings are correct, i.e. sbt-plugin, scalaVersion, sbt version, libraries etc.
 * Git add and push the branch, and create a pull request against the upstream repo.
 
-Because this is new, it is still up to a human to identify the pull request as passing the build hooks and merging it against the template.  
+Because this is new, it is still up to a human to identify the pull request as passing the build hooks and merging it against the template.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ You need to have Hub installed, see [https://hub.github.com/](https://hub.github
 
 ### Project forks
 
-You need to have forks for each of the repositories. 
+You need to have forks for each of the repositories.
 
 For that you can use the scripts `templates/create-forks-play.sh` and `templates/create-forks-lagom.sh`.
 
@@ -43,7 +43,7 @@ export TCONTROL_GITHUB_OAUTH=<personal access token>
 
 ### Public Key for SSL access
 
-Template control will use `https` when interacting with the upstream repos and `git` protocol when interacting with your own forks. When using `git` protocol it relies on your public ssh key as expected, but for unknown reasons, this will only work if your pub key was not generated with a passphrase. 
+Template control will use `https` when interacting with the upstream repos and `git` protocol when interacting with your own forks. When using `git` protocol it relies on your public ssh key as expected, but for unknown reasons, this will only work if your pub key was not generated with a passphrase.
 
 ### WebHook
 
@@ -57,7 +57,7 @@ Once you've got the credentials, you can run it:
 sbt run
 ```
 
-or 
+or
 
 ```
 sbt run --no-push
@@ -80,18 +80,18 @@ When using flag `--no-push`, no branch will be pushed and no PRs will be created
 
 ### Skipping lines
 
-If you need to skip a line, you can add a `tc-skip` comment on the line you don't want to be replaced. 
-For example, in case you have a giter8 template with variables, you may want to leave them untouched. 
+If you need to skip a line, you can add a `tc-skip` comment on the line you don't want to be replaced.
+For example, in case you have a giter8 template with variables, you may want to leave them untouched.
 
 The following line contains a giter8 variable, `$play_version$`,...
 ```
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "$play_version$") 
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "$play_version$")
 ```
 this will be replaced by
 ```
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.6.19") 
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.6.19")
 ```
-and that breaks the giter8 template. 
+and that breaks the giter8 template.
 
 
 If the line contains a `tc-skip`, it won't be touched, for example:
