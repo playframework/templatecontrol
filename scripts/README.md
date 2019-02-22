@@ -1,4 +1,4 @@
-This folder contains scripts that you can use to create your forks and branches for Play and/or Lagom.
+These are scripts you can use to create your forks and branches for the Play and/or Lagom repos.
 
 (Note: Template Control for Lagom is work in progress. Currently we only have the scripts to create branches and forks.)
 
@@ -26,4 +26,5 @@ To create branches for ever Play or Lagom template repo invoke:
 
 This will create a `2.7.x` branch on every Play template repo declared in `templates-play.sh` and a `1.5.x` branch on every Lagom template in `templates-lagom.sh`.
 
-This is especially useful when we have a new major release.
+This is especially useful when we have a new major release.  Make sure you add this new major release in the
+relevant configuration.
