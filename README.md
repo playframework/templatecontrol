@@ -21,9 +21,9 @@ You need to have Hub installed, see <https://hub.github.com/>.
 
 You need to have forks for each of the repositories.
 
-For that you can use the scripts `templates/create-forks-play.sh` and `templates/create-forks-lagom.sh`.
+For that you can use the scripts `scripts/create-forks-play.sh` and `scripts/create-forks-lagom.sh`.
 
-See [templates/README.md](scripts/README.md) for more details.
+See [scripts/README.md](scripts/README.md) for more details.
 
 ### Personal Access Token
 
