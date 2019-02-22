@@ -24,7 +24,7 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
   private val webhook = config.github.webhook
 
   private def tasks(config: Config): Seq[Task] = {
-    Seq(new CopyTask(config), new FindReplaceTask(config))
+    Seq(CopyTask.fromConfig(config), new FindReplaceTask(config))
   }
 
   def run(tempDirectory: File, project: Project, noPush: Boolean): Future[Seq[ProjectResult]] = {

@@ -31,9 +31,7 @@ object Task {
  */
 final case class CopyConfig(path: String, template: String) extends TaskConfig
 
-final class CopyTask(c: Config) extends Task {
-  private val copyConfigs: Seq[CopyConfig] = c.as[Seq[CopyConfig]]("copy")
-
+final case class CopyTask(copyConfigs: Seq[CopyConfig]) extends Task {
   private def findTemplate(template: String): File = {
     import java.nio.file.Paths
     val file = File(Paths.get("")) / "templates" / template
@@ -66,6 +64,10 @@ final class CopyTask(c: Config) extends Task {
       }
     }
   }
+}
+
+object CopyTask {
+  def fromConfig(c: Config): CopyTask = CopyTask(c.as[Seq[CopyConfig]]("copy"))
 }
 
 /**
