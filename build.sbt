@@ -21,5 +21,5 @@ libraryDependencies += "com.typesafe.play"    %% "play-functional"         % "2.
 libraryDependencies += "com.typesafe.play"    %% "play-json"               % "2.6.0"
 libraryDependencies += "com.typesafe.play"    %% "play-ws-standalone"      % "1.0.0"
 libraryDependencies += "org.eclipse.jgit"      % "org.eclipse.jgit"        % "4.5.0.201609210915-r"
-libraryDependencies += "org.kohsuke"           % "github-api"              % "1.77"
+libraryDependencies += "org.kohsuke"           % "github-api"              % "1.95"
 libraryDependencies += "org.slf4j"             % "slf4j-api"               % "1.7.25"
