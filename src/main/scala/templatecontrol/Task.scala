@@ -1,19 +1,19 @@
 package templatecontrol
 
+import scala.concurrent.blocking
+
 import better.files._
 import com.typesafe.config.Config
-
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
-
-import scala.concurrent.blocking
+import org.slf4j.LoggerFactory
 
 trait TaskConfig {
   def path: String
 }
 
-case class TaskResult(config: TaskConfig, modified: String)
+final case class TaskResult(config: TaskConfig, modified: String)
 
 trait Task {
   def execute(path: File): Seq[TaskResult]
@@ -23,16 +23,15 @@ object Task {
   def apply(f: File => Seq[TaskResult]): Task = (path: File) => f.apply(path)
 }
 
-class CopyTask(c: Config) extends Task {
+/**
+ * Sets up a path to template mapping
+ *
+ * @param path the file to search for
+ * @param template the template contents to put into the file.
+ */
+final case class CopyConfig(path: String, template: String) extends TaskConfig
 
-  /**
-    * Sets up a path to template mapping
-    *
-    * @param path the file to search for
-    * @param template the template contents to put into the file.
-    */
-  case class CopyConfig(path: String, template: String) extends TaskConfig
-
+final class CopyTask(c: Config) extends Task {
   private val copyConfigs: Seq[CopyConfig] = c.as[Seq[CopyConfig]]("copy")
 
   private def findTemplate(template: String): File = {
@@ -69,17 +68,16 @@ class CopyTask(c: Config) extends Task {
   }
 }
 
-class FindReplaceTask(c: Config) extends Task {
+/**
+ * Sets up a file finder glob to text search mappings.
+ *
+ * @param path     a glob pattern from http://docs.oracle.com/javase/tutorial/essential/io/fileOps.html#glob
+ * @param conversions a mapping from a search substring to the text line conversion.
+ */
+final case class FinderConfig(path: String, conversions: Map[String, String]) extends TaskConfig
 
-  private val logger = org.slf4j.LoggerFactory.getLogger(classOf[FindReplaceTask])
-
-  /**
-    * Sets up a file finder glob to text search mappings.
-    *
-    * @param path     a glob pattern from http://docs.oracle.com/javase/tutorial/essential/io/fileOps.html#glob
-    * @param conversions a mapping from a search substring to the text line conversion.
-    */
-  case class FinderConfig(path: String, conversions: Map[String, String]) extends TaskConfig
+final class FindReplaceTask(c: Config) extends Task {
+  private val logger = LoggerFactory.getLogger(getClass)
 
   implicit val finderConfigReader: ValueReader[FinderConfig] = ValueReader.relative { c =>
     FinderConfig(
