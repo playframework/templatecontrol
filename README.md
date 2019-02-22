@@ -15,7 +15,7 @@ Because this is new, it is still up to a human to identify the pull request as p
 
 ### Hub
 
-You need to have Hub installed, see [https://hub.github.com/](https://hub.github.com/).
+You need to have Hub installed, see <https://hub.github.com/>.
 
 ### Project forks
 
@@ -31,7 +31,7 @@ You will need to configure Github with a personal access token to get this worki
 
 You want a personal access token with "repo" scope.
 
-https://help.github.com/articles/creating-an-access-token-for-command-line-use/
+<https://help.github.com/articles/creating-an-access-token-for-command-line-use/>
 
 Then you need to create a script with your settings:
 
