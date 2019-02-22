@@ -1,4 +1,4 @@
-# templatecontrol
+# TemplateControl
 
 This is an internal script to update the Play managed example templates, to automate version management.
 
