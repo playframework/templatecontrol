@@ -19,7 +19,7 @@ You need to have Hub installed, see <https://hub.github.com/>.
 
 ### Project forks
 
-You need to have forks for each of the repositories.
+You need to have forks for each of the repositories in your personal GitHub account.
 
 For that you can use the scripts `scripts/create-forks-play.sh` and `scripts/create-forks-lagom.sh`.
 
