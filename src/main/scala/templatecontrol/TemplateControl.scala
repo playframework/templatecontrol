@@ -49,8 +49,21 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
         // only apply for the given branch
           .filter(branchConfig => branchConfig.name == branchName)
           .map { branchConfig =>
-            branchControl(branchConfig, gitProject, noPush) { t =>
-              t.flatMap(_.execute(templateDir))
+            branchControl(branchConfig, gitProject, noPush) { ts =>
+              ts.map {
+                  case t: FindReplaceTask => t
+                  case CopyTask(copyConfigs) =>
+                    CopyTask(copyConfigs.filter {
+                      case CopyConfig("/.travis.yml", ".travis.yml") =>
+                        templateDir.path.getFileName.toString match {
+                          case "play-scala-secure-session-example" => false // wants a more specific setup
+                          case "play-webgoat"                      => false // wants a more specific setup
+                          case _                                   => true
+                        }
+                      case _ => true
+                    })
+                }
+                .flatMap(_.execute(templateDir))
             }
           }
       }
