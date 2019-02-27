@@ -1,23 +1,30 @@
 package templatecontrol
 
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
+import java.time.Instant
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.blocking
+import scala.concurrent.duration.Duration
+import scala.concurrent.Await
+import scala.concurrent.Future
+
 import better.files._
 import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
-import templatecontrol.model.{Project, Template}
+import templatecontrol.live.LiveGithubClient
+import templatecontrol.model.Project
+import templatecontrol.stub.StubGithubClient
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
-
-class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
-  import scala.concurrent.blocking
-  import scala.concurrent.ExecutionContext.Implicits._
-
+final class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
   import TemplateControl._
 
   private val webhook = config.github.webhook
 
   private def tasks(config: Config): Seq[Task] = {
-    Seq(new CopyTask(config),new FindReplaceTask(config))
+    Seq(new CopyTask(config), new FindReplaceTask(config))
   }
 
   def run(tempDirectory: File, project: Project, noPush: Boolean): Future[Seq[ProjectResult]] = {
@@ -29,12 +36,17 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     }
   }
 
-  def createTemplate(templateDir: File, branchName: String, templateName: String, noPush: Boolean): Future[ProjectResult] = Future {
+  def createTemplate(
+      templateDir: File,
+      branchName: String,
+      templateName: String,
+      noPush: Boolean,
+  ): Future[ProjectResult] = Future {
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         processWebHooks(gitProject, webhook)
         config.branchConfigs
-          // only apply for the given branch
+        // only apply for the given branch
           .filter(branchConfig => branchConfig.name == branchName)
           .map { branchConfig =>
             branchControl(branchConfig, gitProject, noPush) { t =>
@@ -68,8 +80,6 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
   }
 
   private def generateMessage(results: Seq[TaskResult]): String = {
-    import java.time.Instant
-
     val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
     sb ++= "\n"
     results.foreach { result =>
@@ -79,8 +89,9 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     sb.toString
   }
 
-  private def projectControl(templateDir: File, templateName: String)
-                             (branchFunction: GitProject => Seq[BranchResult]): ProjectResult = {
+  private def projectControl(templateDir: File, templateName: String)(
+      branchFunction: GitProject => Seq[BranchResult],
+  ): ProjectResult = {
 
     logger.info(s"template dir: $templateDir")
     if (templateDir.exists) {
@@ -104,14 +115,15 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
     }
   }
 
-  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject, noPush: Boolean)
-                           (branchFunction: (Seq[Task]) => Seq[TaskResult]): BranchResult = {
+  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject, noPush: Boolean)(
+      branchFunction: (Seq[Task]) => Seq[TaskResult],
+  ): BranchResult = {
     val branchName: String = branchConfig.name
     try {
       // Create a local branch from the upstream template's branch.
       // i.e. "git branch templatecontrol-2.7.x upstream/2.7.x"
       val localBranchName = s"templatecontrol-$branchName"
-      val startPoint = s"upstream/$branchName"
+      val startPoint      = s"upstream/$branchName"
       gitRepo.createBranch(localBranchName, startPoint)
 
       // Checkout the branch we just created:
@@ -155,32 +167,12 @@ class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient)
 }
 
 object TemplateControl {
-  import scala.concurrent.ExecutionContext.Implicits._
-
-  private def liveGithubClient(github: GithubConfig): GithubClient = {
-    import templatecontrol.live.LiveGithubClient
-    val user = github.credentials.user
-    val oauthToken = github.credentials.oauthToken
-    val remote = github.remote
-    val upstream = github.upstream
-    new LiveGithubClient(user, oauthToken, remote, upstream)
-  }
-
-  //  private def stubGithubClient(github: GithubConfig): GithubClient = {
-  //    val user = github.credentials.user
-  //    val oauthToken = github.credentials.oauthToken
-  //    val remote = github.remote
-  //    val upstream = github.upstream
-  //    new StubGithubClient(user, oauthToken, remote, upstream)
-  //  }
-
   val logger = LoggerFactory.getLogger(TemplateControl.getClass)
 
   def runFor(project: Project, args: Array[String]): Unit = {
-    import com.typesafe.config.ConfigFactory
-
     val config =
-      TemplateControlConfig.fromTypesafeConfig(ConfigFactory.load())
+      TemplateControlConfig
+        .fromTypesafeConfig(ConfigFactory.load())
         .copy(noPush = args.contains("--no-push"))
 
     logger.info("running dry-run: " + config.noPush)
@@ -193,12 +185,25 @@ object TemplateControl {
     val reports =
       control
         .run(tempDirectory(config.baseDirectory), project, config.noPush)
-        .map { results =>
-          val upstream = config.github.upstream
-          report(upstream, results)
-        }
+        .map(results => report(config.github.upstream, results))
 
     Await.result(reports, Duration.Inf)
+  }
+
+  private def liveGithubClient(github: GithubConfig): GithubClient = {
+    val user       = github.credentials.user
+    val oauthToken = github.credentials.oauthToken
+    val remote     = github.remote
+    val upstream   = github.upstream
+    new LiveGithubClient(user, oauthToken, remote, upstream)
+  }
+
+  private def stubGithubClient(github: GithubConfig): GithubClient = {
+    val user       = github.credentials.user
+    val oauthToken = github.credentials.oauthToken
+    val remote     = github.remote
+    val upstream   = github.upstream
+    new StubGithubClient(user, oauthToken, remote, upstream)
   }
 
   def report(upstream: String, results: Seq[ProjectResult]): Unit = {
@@ -241,9 +246,6 @@ object TemplateControl {
   }
 
   def tempDirectory(baseDirectory: File): File = {
-    import java.nio.file.attribute.PosixFilePermissions
-    import java.nio.file.Files
-
     val perms = PosixFilePermissions.fromString("rwx------")
     val attrs = PosixFilePermissions.asFileAttribute(perms)
 
@@ -258,11 +260,11 @@ object TemplateControl {
   }
 
   sealed trait BranchResult { def name: String }
-  case class BranchSuccess(name: String, results: Seq[TaskResult]) extends BranchResult
-  case class BranchFailure(name: String, exception: Exception) extends BranchResult
+  final case class BranchSuccess(name: String, results: Seq[TaskResult]) extends BranchResult
+  final case class BranchFailure(name: String, exception: Exception)     extends BranchResult
 
   sealed trait ProjectResult { def name: String }
-  case class ProjectFailure(name: String, exception: Exception) extends ProjectResult
-  case class ProjectSuccess(name: String, results: Seq[BranchResult]) extends ProjectResult
+  final case class ProjectFailure(name: String, exception: Exception)       extends ProjectResult
+  final case class ProjectSuccess(name: String, results: Seq[BranchResult]) extends ProjectResult
 
 }
