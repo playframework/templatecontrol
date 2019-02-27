@@ -21,8 +21,6 @@ import templatecontrol.stub.StubGithubClient
 final class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
   import TemplateControl._
 
-  private val webhook = config.github.webhook
-
   private def tasks(config: Config): Seq[Task] = {
     Seq(new CopyTask(config), new FindReplaceTask(config))
   }
@@ -44,7 +42,6 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
   ): Future[ProjectResult] = Future {
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
-        processWebHooks(gitProject, webhook)
         config.branchConfigs
         // only apply for the given branch
           .filter(branchConfig => branchConfig.name == branchName)
@@ -54,28 +51,6 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
             }
           }
       }
-    }
-  }
-
-  private def findWebhook(gitProject: GitProject, webhook: Map[String, String]): Boolean = {
-    // XXX eventually we'll want complete search and insertion of missing webhooks...
-    val configKey = "url"
-    gitProject.hooks.exists(_.getConfig.get(configKey) == webhook(configKey))
-  }
-
-  private def processWebHooks(gitProject: GitProject, webhook: GithubWebhookConfig) = {
-    try {
-      if (!findWebhook(gitProject, webhook.config)) {
-        val msg = s"Project does not contain $webhook!"
-        logger.warn(msg)
-        // addWebhook does not appear to work because secret has to be defined in header :-(
-        //gitProject.addWebhook(webhook.name, webhook.config)
-      }
-    } catch {
-      case ise: IllegalStateException =>
-        throw ise
-      case e: Exception =>
-        throw new IllegalStateException(s"Cannot add webhook $webhook", e)
     }
   }
 
