@@ -19,10 +19,7 @@ final case class GithubConfig(
     upstream: String,
     remote: String,
     credentials: GithubCredentialsConfig,
-    webhook: GithubWebhookConfig,
 )
-
-final case class GithubWebhookConfig(name: String, config: Map[String, String])
 
 final case class GithubCredentialsConfig(user: String, oauthToken: String)
 
