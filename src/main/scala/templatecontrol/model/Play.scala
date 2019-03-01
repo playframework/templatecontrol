@@ -1,7 +1,7 @@
 package templatecontrol.model
 
 object Play {
-  def play26 = Project("Play", "2.6.x", (templates diff templates27).map(mkTemplate))
+  def play26 = Project("Play", "2.6.x", templates.diff(templates27).map(mkTemplate))
   def play27 = Project("Play", "2.7.x", templates.map(mkTemplate))
 
   private def mkTemplate(name: String) = Template(name, "playframework")
@@ -10,7 +10,6 @@ object Play {
     "play-java-seed.g8",
     "play-java-starter-example",
     "play-java-hello-world-tutorial",
-
     "play-java-chatroom-example",
     "play-java-compile-di-example",
     "play-java-dagger2-example",
@@ -22,11 +21,9 @@ object Play {
     "play-java-rest-api-example",
     "play-java-streaming-example",
     "play-java-websocket-example",
-
     "play-scala-seed.g8",
     "play-scala-starter-example",
     "play-scala-hello-world-tutorial",
-
     "play-scala-anorm-example",
     "play-scala-chatroom-example",
     "play-scala-compile-di-example",
@@ -42,7 +39,6 @@ object Play {
     "play-scala-streaming-example",
     "play-scala-tls-example",
     "play-scala-websocket-example",
-
     "play-webgoat",
   )
 

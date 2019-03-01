@@ -8,9 +8,9 @@ import org.eclipse.jgit.lib.Ref
 import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.transport.OpenSshConfig.Host
 import org.eclipse.jgit.transport._
-import org.kohsuke.github.{GHHook, GHRepository}
+import org.kohsuke.github.GHHook
+import org.kohsuke.github.GHRepository
 import templatecontrol.GitProject
-
 
 class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHRepository) extends GitProject {
   import scala.collection.JavaConverters._
@@ -24,7 +24,7 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   private val git: Git = {
     def transportConfigCallback = {
       val sshSessionFactory = new JschConfigSessionFactory() {
-        override protected def configure(host: Host, session: Session) = {}
+        protected override def configure(host: Host, session: Session) = {}
       }
 
       new TransportConfigCallback() {
@@ -35,7 +35,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
       }
     }
 
-    val git = Git.cloneRepository()
+    val git = Git
+      .cloneRepository()
       .setURI(remoteUrl)
       .setCloneAllBranches(true)
       .setDirectory(workingDir.toJava)
@@ -85,7 +86,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   }
 
   override def branches(): Seq[Ref] = {
-    val refs = git.branchList()
+    val refs = git
+      .branchList()
       .call()
       .asScala
 
@@ -96,7 +98,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   }
 
   override def createBranch(branchName: String, startPoint: String): Ref = {
-    val ref = git.branchCreate()
+    val ref = git
+      .branchCreate()
       .setForce(true)
       .setName(branchName)
       .setStartPoint(startPoint)
@@ -109,7 +112,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   // Check out an existing branch.
   override def checkout(branchName: String): Ref = {
-    val ref = git.checkout()
+    val ref = git
+      .checkout()
       .setName(branchName)
       .call()
 
@@ -121,7 +125,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   override def add(): DirCache = {
     logger.debug(s"add: ")
 
-    git.add()
+    git
+      .add()
       .addFilepattern(".")
       .call()
   }
@@ -129,7 +134,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   override def commit(message: String): RevCommit = {
     logger.debug(s"commit: $message")
 
-    git.commit()
+    git
+      .commit()
       .setAll(true)
       .setMessage(message)
       .call()
@@ -138,7 +144,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   override def branchCreate(branchName: String): Ref = {
     logger.debug(s"branchCreate: $branchName")
 
-    git.branchCreate()
+    git
+      .branchCreate()
       .setName(branchName)
       .call()
   }
@@ -151,7 +158,9 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   override def status(): Status = {
     val status = git.status().call()
-    logger.debug(s"status: status isClean = ${status.isClean}, hasUncommittedChanges = ${status.hasUncommittedChanges}")
+    logger.debug(
+      s"status: status isClean = ${status.isClean}, hasUncommittedChanges = ${status.hasUncommittedChanges}",
+    )
 
     status
   }
