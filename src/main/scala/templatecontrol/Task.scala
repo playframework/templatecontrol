@@ -47,7 +47,7 @@ final class CopyTask(c: Config) extends Task {
   def execute(workingDir: File): Seq[TaskResult] = {
     copyConfigs.flatMap { c =>
       val source: File = findTemplate(c.template)
-      val dest: File = file"${workingDir.path.toAbsolutePath}${c.path}"
+      val dest: File   = file"${workingDir.path.toAbsolutePath}${c.path}"
       blocking {
 
         // create parent directory if non-existent
@@ -82,13 +82,13 @@ final class FindReplaceTask(c: Config) extends Task {
   implicit val finderConfigReader: ValueReader[FinderConfig] = ValueReader.relative { c =>
     FinderConfig(
       path = c.as[String]("path"),
-      conversions = c.as[Map[String, String]]("conversions")
+      conversions = c.as[Map[String, String]]("conversions"),
     )
   }
 
   private val finderConfigs: Seq[FinderConfig] = c.as[Seq[FinderConfig]]("finders")
 
-   def execute(workingDir: File): Seq[TaskResult] = {
+  def execute(workingDir: File): Seq[TaskResult] = {
     finderConfigs.flatMap { finderConfig =>
       workingDir.glob(finderConfig.path).flatMap { file =>
         val tempFile = file.parent / s"${file.name}.tmp"
@@ -101,8 +101,8 @@ final class FindReplaceTask(c: Config) extends Task {
                 // keep line as is if it contains tc-skip (template control skip)
                 // that's particularly useful for giter8 templates that contains variables
                 case Some(_) if s.contains("tc-skip") => s
-                case Some(_) => v
-                case None => s
+                case Some(_)                          => v
+                case None                             => s
               }
         }
         val results = file.lines.flatMap { line =>

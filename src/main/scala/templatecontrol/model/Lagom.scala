@@ -1,7 +1,7 @@
 package templatecontrol.model
 
 object Lagom {
-  def lagom14 = Project("Lagom", "1.4.x", (templates diff templates15).map(mkTemplate))
+  def lagom14 = Project("Lagom", "1.4.x", templates.diff(templates15).map(mkTemplate))
   def lagom15 = Project("Lagom", "1.5.x", templates.map(mkTemplate))
 
   private def mkTemplate(name: String) = Template(name, "lagom")

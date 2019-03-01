@@ -2,7 +2,6 @@ package templatecontrol
 
 import templatecontrol.model.Lagom
 
-
 object RunLagomAll {
   def main(args: Array[String]): Unit = {
     RunLagom14.main(args)

@@ -8,7 +8,6 @@ import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.transport._
 import org.kohsuke.github.GHHook
 
-
 trait GithubClient {
   def clone(workingDir: File, template: String): GitProject
 }
