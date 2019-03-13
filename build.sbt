@@ -9,7 +9,7 @@ scalacOptions ++= Seq(
   "-Ywarn-numeric-widen",
 )
 
-libraryDependencies += "com.github.pathikrit" %% "better-files"            % "3.4.0"
+libraryDependencies += "com.github.pathikrit" %% "better-files"            % "3.7.1"
 libraryDependencies += "com.iheart"           %% "ficus"                   % "1.4.0"
 libraryDependencies += "com.jcraft"           % "jsch"                     % "0.1.53"
 libraryDependencies += "com.typesafe"         % "config"                   % "1.3.1"
