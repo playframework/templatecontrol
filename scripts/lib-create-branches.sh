@@ -5,7 +5,7 @@ function create-branches() {
    branch=$1; shift;
 
    # pick first arg for github url
-   github=$2; shift;
+   github=$1; shift;
 
    # all the rest must be templates
    templates=($@)
