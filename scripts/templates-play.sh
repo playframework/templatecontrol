@@ -1,5 +1,7 @@
 #!/bin/bash
 
+##  Keep the templates list in sync with ./src/main/scala/model/Play.scala !
+
 declare -a play_templates=(
   "play-java-starter-example"
   "play-scala-starter-example"
