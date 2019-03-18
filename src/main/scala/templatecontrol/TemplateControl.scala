@@ -148,7 +148,7 @@ object TemplateControl {
     val config =
       TemplateControlConfig
         .fromTypesafeConfig(ConfigFactory.load())
-        .copy(noPush = args.contains("--no-push"))
+        .copy(noPush = args.contains("--no-push") || args.contains("--dry-run"))
 
     logger.info("running dry-run: " + config.noPush)
 
