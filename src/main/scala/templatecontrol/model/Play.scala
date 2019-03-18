@@ -1,5 +1,7 @@
 package templatecontrol.model
 
+// Keep the templates list in sync with ./scripts/templates-play.sh !
+
 object Play {
   def play26 = Project("Play", "2.6.x", templates.diff(templates27).map(mkTemplate))
   def play27 = Project("Play", "2.7.x", templates.map(mkTemplate))

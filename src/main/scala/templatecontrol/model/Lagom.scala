@@ -6,19 +6,32 @@ object Lagom {
 
   private def mkTemplate(name: String) = Template(name, "lagom")
 
+
+  // Keep the templates list in sync with ./scripts/templates-lagom.sh !
+
+  // all templates
   private def templates = Seq(
     "lagom-java.g8",
     "lagom-scala.g8",
     "online-auction-java",
     "online-auction-scala",
-    "lagom-java-grpc-example",
-    "lagom-scala-grpc-example",
     "lagom-java-maven-chirper-example",
     "lagom-java-sbt-chirper-example",
+    "lagom-java-grpc-example",
+    "lagom-scala-grpc-example",
+    "lagom-scala-openshift-smoketests",
+    "lagom-java-openshift-smoketests",
+    "shopping-cart-scala",
+    "shopping-cart-java"
   )
 
+  // templates added for Lagom 1.5.x
   private def templates15 = Seq(
     "lagom-java-grpc-example",
     "lagom-scala-grpc-example",
+    "lagom-scala-openshift-smoketests",
+    "lagom-java-openshift-smoketests",
+    "shopping-cart-scala",
+    "shopping-cart-java"
   )
 }

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+##  Keep the templates list in sync with ./src/main/scala/model/Lagom.scala !
+
 declare -a lagom_templates=( 
    "online-auction-scala"
    "online-auction-java"
