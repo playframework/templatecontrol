@@ -79,13 +79,6 @@ final case class FinderConfig(path: String, conversions: Map[String, String]) ex
 final class FindReplaceTask(c: Config) extends Task {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  implicit val finderConfigReader: ValueReader[FinderConfig] = ValueReader.relative { c =>
-    FinderConfig(
-      path = c.as[String]("path"),
-      conversions = c.as[Map[String, String]]("conversions"),
-    )
-  }
-
   private val finderConfigs: Seq[FinderConfig] = c.as[Seq[FinderConfig]]("finders")
 
   def execute(workingDir: File): Seq[TaskResult] = {
