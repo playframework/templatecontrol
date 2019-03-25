@@ -29,9 +29,17 @@ object Task {
  * @param path the file to search for
  * @param template the template contents to put into the file.
  */
-final case class CopyConfig(path: String, template: String) extends TaskConfig
+final case class CopyConfig(path: String, template: String, exclude: Seq[String]) extends TaskConfig
 
 final class CopyTask(c: Config) extends Task {
+  implicit val copyConfigReader: ValueReader[CopyConfig] = ValueReader.relative { c =>
+    CopyConfig(
+      path = c.as[String]("path"),
+      template = c.as[String]("template"),
+      exclude = c.as[Option[Seq[String]]]("exclude").getOrElse(Nil),
+    )
+  }
+
   private val copyConfigs: Seq[CopyConfig] = c.as[Seq[CopyConfig]]("copy")
 
   private def findTemplate(template: String): File = {
@@ -45,7 +53,8 @@ final class CopyTask(c: Config) extends Task {
   }
 
   def execute(workingDir: File): Seq[TaskResult] = {
-    copyConfigs.flatMap { c =>
+    val repoName = workingDir.path.getFileName.toString
+    copyConfigs.filter(c => !c.exclude.contains(repoName)).flatMap { c =>
       val source: File = findTemplate(c.template)
       val dest: File   = file"${workingDir.path.toAbsolutePath}${c.path}"
       blocking {
