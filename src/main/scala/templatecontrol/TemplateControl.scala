@@ -27,6 +27,27 @@ object RunLagomAll extends App { TemplateControl.runFor(args, Lagom.lagom14, Lag
 object RunLagom14  extends App { TemplateControl.runFor(args, Lagom.lagom14)                }
 object RunLagom15  extends App { TemplateControl.runFor(args, Lagom.lagom15)                }
 
+object RunMergify {
+  def main(args: Array[String]): Unit = {
+    val control0 = TemplateControl.create(args)
+    val config = control0.config.copy(noPr = true)
+    val control = new TemplateControl(config, control0.githubClient)
+
+    val branchConfig = ConfigFactory.parseString(
+      """{ copy = [{ path = "/.mergify.yml", template = ".mergify.yml" }], finders = [] }""",
+    )
+
+    // TODO: Add Lagom, when Mergify knows how to push to lagom
+    // val projects = Seq(Play.play27, Lagom.lagom14, Project("Lagom", "1.5.x", Lagom.templates15))
+    val projects = Seq(Play.play27)
+
+    for (project <- projects) {
+      val results = control.runBranch(project, BranchConfig(project.branchName, branchConfig))
+      control.reportBlocking(results)
+    }
+  }
+}
+
 final class TemplateControl(val config: TemplateControlConfig, val githubClient: GithubClient) {
   import TemplateControl._
 
