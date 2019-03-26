@@ -164,6 +164,7 @@ object TemplateControl {
         .copy(noPush = args.contains("--no-push") || args.contains("--dry-run"))
 
     logger.info("running dry-run: " + config.noPush)
+    logger.info(s"base dir: ${config.baseDirectory}")
 
     val client = liveGithubClient(config.github)
     //val client = stubGithubClient(config.github)
@@ -229,16 +230,17 @@ object TemplateControl {
   }
 
   def tempDirectory(baseDirectory: File): File = {
-    val perms = PosixFilePermissions.fromString("rwx------")
-    val attrs = PosixFilePermissions.asFileAttribute(perms)
-
-    logger.info(s"base dir: $baseDirectory")
     val tempFile: File =
-      if (!baseDirectory.isDirectory) Files.createDirectory(baseDirectory.toJava.toPath, attrs)
-      else baseDirectory
+      if (baseDirectory.isDirectory) baseDirectory
+      else {
+        val perms = PosixFilePermissions.fromString("rwx------")
+        val attrs = PosixFilePermissions.asFileAttribute(perms)
+        Files.createDirectory(baseDirectory.toJava.toPath, attrs)
+      }
 
     // Note this only happens if you don't interrupt or crash the JVM in some way.
     tempFile.toJava.deleteOnExit()
+
     tempFile
   }
 
