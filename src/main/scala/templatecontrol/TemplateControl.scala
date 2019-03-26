@@ -55,8 +55,14 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
     val templateDir = tempDirectory(config.baseDirectory) / branchConfig.name / templateName
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
-        branchControl(branchConfig, gitProject) { tasks =>
-          tasks.flatMap(_.execute(templateDir))
+        if (config.noPr) {
+          push(branchConfig, gitProject) { tasks =>
+            tasks.flatMap(_.execute(templateDir))
+          }
+        } else {
+          pr(branchConfig, gitProject) { tasks =>
+            tasks.flatMap(_.execute(templateDir))
+          }
         }
       }
     }
@@ -82,7 +88,42 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
     }
   }
 
-  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)(
+  private def push(branchConfig: BranchConfig, gitRepo: GitProject)(
+      branchFunction: (Seq[Task]) => Seq[TaskResult],
+  ): BranchResult = {
+    val branchName: String = branchConfig.name
+    try {
+      // Checkout the target branch:
+      // "git checkout 2.7.x"
+      gitRepo.checkout(branchName)
+
+      val results = branchFunction(configToTasks(branchConfig.config))
+
+      // Did anything change?
+      if (!gitRepo.status().isClean) {
+        // If so, add the changes to the branch...
+        // "git add ."
+        gitRepo.add()
+
+        val message = generateMessage(results)
+
+        // Commit the added changes...
+        // "git commit -m $message"
+        gitRepo.commit(message)
+
+        if (!config.noPush) {
+          // Push the branch to the remote repository
+          // "git push origin 2.7.x"
+          gitRepo.push(branchName)
+        }
+      }
+      BranchSuccess(branchName, results)
+    } catch {
+      case e: Exception => BranchFailure(branchName, e)
+    }
+  }
+
+  private def pr(branchConfig: BranchConfig, gitRepo: GitProject)(
       branchFunction: (Seq[Task]) => Seq[TaskResult],
   ): BranchResult = {
     val branchName: String = branchConfig.name

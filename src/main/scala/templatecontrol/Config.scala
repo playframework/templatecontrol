@@ -36,6 +36,7 @@ final case class TemplateControlConfig(
     github: GithubConfig,
     branchConfigs: Seq[BranchConfig],
     noPush: Boolean = false,
+    noPr: Boolean = false,
 ) {
   def branchConfigFor(branchName: String): BranchConfig = {
     branchConfigs
