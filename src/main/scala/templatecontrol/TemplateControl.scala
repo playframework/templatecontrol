@@ -30,20 +30,16 @@ object RunLagom15  extends App { TemplateControl.runFor(args, Lagom.lagom15)    
 final class TemplateControl(val config: TemplateControlConfig, val githubClient: GithubClient) {
   import TemplateControl._
 
-  private def tasks(config: Config): Seq[Task] = {
-    Seq(new CopyTask(config), new FindReplaceTask(config))
-  }
-
   def run(tempDirectory: File, project: Project, noPush: Boolean): Future[Seq[ProjectResult]] = {
     Future.sequence {
       project.templates.map { tpl =>
         val templateDir: File = tempDirectory / project.branchName / tpl.name
-        createTemplate(templateDir, project.branchName, tpl.name, noPush)
+        runTemplate(templateDir, project.branchName, tpl.name, noPush)
       }
     }
   }
 
-  def createTemplate(
+  def runTemplate(
       templateDir: File,
       branchName: String,
       templateName: String,
@@ -52,50 +48,33 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         config.branchConfigs
-        // only apply for the given branch
-          .filter(branchConfig => branchConfig.name == branchName)
+          .filter(branchConfig => branchConfig.name == branchName) // only run for the given branch
           .map { branchConfig =>
-            branchControl(branchConfig, gitProject, noPush) { t =>
-              t.flatMap(_.execute(templateDir))
+            branchControl(branchConfig, gitProject, noPush) { tasks =>
+              tasks.flatMap(_.execute(templateDir))
             }
           }
       }
     }
   }
 
-  private def generateMessage(results: Seq[TaskResult]): String = {
-    val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
-    sb ++= "\n"
-    results.foreach { result =>
-      sb ++= s"  ${result.config.path}:\n"
-      sb ++= s"    ${result.modified}\n"
-    }
-    sb.toString
-  }
-
   private def projectControl(templateDir: File, templateName: String)(
       branchFunction: GitProject => Seq[BranchResult],
   ): ProjectResult = {
-
     logger.info(s"template dir: $templateDir")
+
     if (templateDir.exists) {
       templateDir.delete()
     }
 
-    // Clone a git repo for this template.
-    val gitRepo = githubClient.clone(templateDir, templateName)
+    val gitRepo = githubClient.clone(templateDir, templateName) // Clone this template's repo.
     try {
-      // Make sure we have all the branches from remote.
-      gitRepo.fetch()
-
-      val results = branchFunction(gitRepo)
-      ProjectSuccess(templateName, results)
+      gitRepo.fetch() // Make sure we have all the branches from remote.
+      ProjectSuccess(templateName, branchFunction(gitRepo))
     } catch {
-      case e: Exception =>
-        ProjectFailure(templateName, e)
+      case e: Exception => ProjectFailure(templateName, e)
     } finally {
-      // close the repo to stop file descriptors from leaking.
-      gitRepo.close()
+      gitRepo.close() // close the repo to stop file descriptors from leaking.
     }
   }
 
@@ -114,14 +93,15 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
       // "git checkout templatecontrol-2.7.x"
       gitRepo.checkout(localBranchName)
 
-      val results = branchFunction(tasks(branchConfig.config))
-      val message = generateMessage(results)
+      val results = branchFunction(configToTasks(branchConfig.config))
 
       // Did anything change?
       if (!gitRepo.status().isClean) {
         // If so, add the changes to the branch...
         // "git add ."
         gitRepo.add()
+
+        val message = generateMessage(results)
 
         // Commit the added changes...
         // "git commit -m $message"
@@ -147,6 +127,19 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
         e.printStackTrace()
         BranchFailure(branchName, e)
     }
+  }
+
+  private def configToTasks(config: Config): Seq[Task] = {
+    Seq(new CopyTask(config), new FindReplaceTask(config))
+  }
+
+  private def generateMessage(results: Seq[TaskResult]): String = {
+    val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}\n")
+    results.foreach { result =>
+      sb ++= s"  ${result.config.path}:\n"
+      sb ++= s"    ${result.modified}\n"
+    }
+    sb.result()
   }
 }
 
@@ -201,38 +194,34 @@ object TemplateControl {
       case ProjectSuccess(name, branches) =>
         val sb = new StringBuilder
         branches.foreach {
-          case BranchSuccess(branch, replacements) if replacements.nonEmpty =>
-            sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
-            replacements.foreach {
-              case TaskResult(finder, modified) =>
-                sb ++= s"    ${finder.path}:\n"
-                sb ++= s"       $modified\n"
+          case BranchSuccess(branch, replacements) =>
+            if (replacements.nonEmpty) {
+              sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
+              replacements.foreach {
+                case TaskResult(finder, modified) =>
+                  sb ++= s"    ${finder.path}:\n"
+                  sb ++= s"       $modified\n"
+              }
             }
           case BranchFailure(branch, e) =>
             sb ++= s"https://github.com/$upstream/$name/tree/$branch - FAILURE\n"
             exceptionToString(sb, e)
-            sb.append("\n")
-          case _ =>
-          // do nothing
+            sb += '\n'
         }
         sb.toString()
 
       case ProjectFailure(name, e) =>
         val sb = new StringBuilder(s"$name: FAILURE\n")
         exceptionToString(sb, e)
-        sb.append("\n")
-        sb.toString
+        sb += '\n'
+        sb.result()
 
     }
     println(s.mkString(""))
   }
 
   def exceptionToString(sb: StringBuilder, e: Exception): Unit = {
-    sb.append("    Exception: ")
-    sb.append(e.getMessage)
-    sb.append("\n")
-    //val errors = new java.io.StringWriter()
-    //e.printStackTrace(new java.io.PrintWriter(errors))
+    sb ++= s"    Exception: ${e.getMessage}\n"
   }
 
   def tempDirectory(baseDirectory: File): File = {
