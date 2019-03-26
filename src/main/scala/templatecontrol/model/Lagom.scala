@@ -6,7 +6,6 @@ object Lagom {
 
   private def mkTemplate(name: String) = Template(name, "lagom")
 
-
   // Keep the templates list in sync with ./scripts/templates-lagom.sh !
 
   // all templates
@@ -22,7 +21,7 @@ object Lagom {
     "lagom-scala-openshift-smoketests",
     "lagom-java-openshift-smoketests",
     "shopping-cart-scala",
-    "shopping-cart-java"
+    "shopping-cart-java",
   )
 
   // templates added for Lagom 1.5.x
@@ -32,6 +31,6 @@ object Lagom {
     "lagom-scala-openshift-smoketests",
     "lagom-java-openshift-smoketests",
     "shopping-cart-scala",
-    "shopping-cart-java"
+    "shopping-cart-java",
   )
 }
