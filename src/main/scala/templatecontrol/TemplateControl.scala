@@ -30,11 +30,11 @@ object RunLagom15  extends App { TemplateControl.runFor(args, Lagom.lagom15)    
 final class TemplateControl(val config: TemplateControlConfig, val githubClient: GithubClient) {
   import TemplateControl._
 
-  def run(tempDirectory: File, project: Project, noPush: Boolean): Future[Seq[ProjectResult]] = {
+  def run(tempDirectory: File, project: Project): Future[Seq[ProjectResult]] = {
     Future.sequence {
       project.templates.map { tpl =>
         val templateDir: File = tempDirectory / project.branchName / tpl.name
-        runTemplate(templateDir, project.branchName, tpl.name, noPush)
+        runTemplate(templateDir, project.branchName, tpl.name)
       }
     }
   }
@@ -43,14 +43,13 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
       templateDir: File,
       branchName: String,
       templateName: String,
-      noPush: Boolean,
   ): Future[ProjectResult] = Future {
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         config.branchConfigs
           .filter(branchConfig => branchConfig.name == branchName) // only run for the given branch
           .map { branchConfig =>
-            branchControl(branchConfig, gitProject, noPush) { tasks =>
+            branchControl(branchConfig, gitProject) { tasks =>
               tasks.flatMap(_.execute(templateDir))
             }
           }
@@ -78,7 +77,7 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
     }
   }
 
-  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject, noPush: Boolean)(
+  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject)(
       branchFunction: (Seq[Task]) => Seq[TaskResult],
   ): BranchResult = {
     val branchName: String = branchConfig.name
@@ -107,7 +106,7 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
         // "git commit -m $message"
         gitRepo.commit(message)
 
-        if (!noPush) {
+        if (!config.noPush) {
           // Push this new branch to the remote repository
           // "git push -f origin templatecontrol-2.7.x"
           gitRepo.push(localBranchName, force = true)
@@ -150,7 +149,7 @@ object TemplateControl {
     for (project <- projects) {
       val reports =
         control
-          .run(tempDirectory(config.baseDirectory), project, config.noPush)
+          .run(tempDirectory(config.baseDirectory), project)
           .map(results => report(config.github.upstream, results))
 
       Await.result(reports, Duration.Inf)
