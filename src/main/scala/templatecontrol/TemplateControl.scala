@@ -43,7 +43,12 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
     }
   }
 
-  def runTemplate(
+  def reportBlocking(results: Future[Seq[ProjectResult]]) = {
+    val future = results.map(results => TemplateControl.report(config.github.upstream, results))
+    Await.result(future, Duration.Inf)
+  }
+
+  private def runTemplate(
       branchConfig: BranchConfig,
       templateName: String,
   ): Future[ProjectResult] = Future {
@@ -145,14 +150,9 @@ object TemplateControl {
 
   def runFor(args: Array[String], projects: Project*): Unit = {
     val control = create(args)
-
     for (project <- projects) {
-      val reports =
-        control
-          .run(project)
-          .map(results => report(config.github.upstream, results))
-
-      Await.result(reports, Duration.Inf)
+      val results = control.run(project)
+      control.reportBlocking(results)
     }
   }
 
