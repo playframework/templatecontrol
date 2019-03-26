@@ -24,13 +24,11 @@ object Lagom {
     "shopping-cart-java",
   )
 
-  // templates added for Lagom 1.5.x
+  // Lagom 1.5.x only templates
   private def templates15 = Seq(
     "lagom-java-grpc-example",
     "lagom-scala-grpc-example",
     "lagom-scala-openshift-smoketests",
     "lagom-java-openshift-smoketests",
-    "shopping-cart-scala",
-    "shopping-cart-java",
   )
 }
