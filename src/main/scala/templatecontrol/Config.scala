@@ -2,6 +2,7 @@ package templatecontrol
 
 import better.files.File
 import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
@@ -35,7 +36,13 @@ final case class TemplateControlConfig(
     github: GithubConfig,
     branchConfigs: Seq[BranchConfig],
     noPush: Boolean = false,
-)
+) {
+  def branchConfigFor(branchName: String): BranchConfig = {
+    branchConfigs
+      .find(_.name == branchName)
+      .getOrElse(BranchConfig(branchName, ConfigFactory.parseString("{ copy = [], finders = [] }")))
+  }
+}
 
 object TemplateControlConfig {
 

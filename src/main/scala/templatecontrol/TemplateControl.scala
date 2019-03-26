@@ -31,33 +31,34 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
   import TemplateControl._
 
   def run(project: Project): Future[Seq[ProjectResult]] = {
+    val branchConfig = config.branchConfigFor(project.branchName)
+    runBranch(project, branchConfig)
+  }
+
+  def runBranch(project: Project, branchConfig: BranchConfig): Future[Seq[ProjectResult]] = {
     Future.sequence {
       project.templates.map { tpl =>
-        runTemplate(project.branchName, tpl.name)
+        runTemplate(branchConfig, tpl.name)
       }
     }
   }
 
   def runTemplate(
-      branchName: String,
+      branchConfig: BranchConfig,
       templateName: String,
   ): Future[ProjectResult] = Future {
-    val templateDir = tempDirectory(config.baseDirectory) / branchName / templateName
+    val templateDir = tempDirectory(config.baseDirectory) / branchConfig.name / templateName
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
-        config.branchConfigs
-          .filter(branchConfig => branchConfig.name == branchName) // only run for the given branch
-          .map { branchConfig =>
-            branchControl(branchConfig, gitProject) { tasks =>
-              tasks.flatMap(_.execute(templateDir))
-            }
-          }
+        branchControl(branchConfig, gitProject) { tasks =>
+          tasks.flatMap(_.execute(templateDir))
+        }
       }
     }
   }
 
   private def projectControl(templateDir: File, templateName: String)(
-      branchFunction: GitProject => Seq[BranchResult],
+      branchFunction: GitProject => BranchResult,
   ): ProjectResult = {
     logger.info(s"template dir: $templateDir")
 
@@ -188,9 +189,9 @@ object TemplateControl {
 
   def report(upstream: String, results: Seq[ProjectResult]): Unit = {
     val s = results.map {
-      case ProjectSuccess(name, branches) =>
+      case ProjectSuccess(name, branch) =>
         val sb = new StringBuilder
-        branches.foreach {
+        branch match {
           case BranchSuccess(branch, replacements) =>
             if (replacements.nonEmpty) {
               sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
@@ -247,7 +248,7 @@ object TemplateControl {
   final case class BranchFailure(name: String, exception: Exception)     extends BranchResult
 
   sealed trait ProjectResult { def name: String }
-  final case class ProjectFailure(name: String, exception: Exception)       extends ProjectResult
-  final case class ProjectSuccess(name: String, results: Seq[BranchResult]) extends ProjectResult
+  final case class ProjectFailure(name: String, exception: Exception)  extends ProjectResult
+  final case class ProjectSuccess(name: String, results: BranchResult) extends ProjectResult
 
 }
