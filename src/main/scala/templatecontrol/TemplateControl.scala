@@ -30,20 +30,19 @@ object RunLagom15  extends App { TemplateControl.runFor(args, Lagom.lagom15)    
 final class TemplateControl(val config: TemplateControlConfig, val githubClient: GithubClient) {
   import TemplateControl._
 
-  def run(tempDirectory: File, project: Project): Future[Seq[ProjectResult]] = {
+  def run(project: Project): Future[Seq[ProjectResult]] = {
     Future.sequence {
       project.templates.map { tpl =>
-        val templateDir: File = tempDirectory / project.branchName / tpl.name
-        runTemplate(templateDir, project.branchName, tpl.name)
+        runTemplate(project.branchName, tpl.name)
       }
     }
   }
 
   def runTemplate(
-      templateDir: File,
       branchName: String,
       templateName: String,
   ): Future[ProjectResult] = Future {
+    val templateDir = tempDirectory(config.baseDirectory) / branchName / templateName
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         config.branchConfigs
@@ -149,7 +148,7 @@ object TemplateControl {
     for (project <- projects) {
       val reports =
         control
-          .run(tempDirectory(config.baseDirectory), project)
+          .run(project)
           .map(results => report(config.github.upstream, results))
 
       Await.result(reports, Duration.Inf)
