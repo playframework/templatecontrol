@@ -15,10 +15,19 @@ import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
 import templatecontrol.live.LiveGithubClient
+import templatecontrol.model.Lagom
+import templatecontrol.model.Play
 import templatecontrol.model.Project
 import templatecontrol.stub.StubGithubClient
 
-final class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
+object RunPlayAll  extends App { TemplateControl.runFor(args, Play.play26, Play.play27)     }
+object RunPlay26   extends App { TemplateControl.runFor(args, Play.play26)                  }
+object RunPlay27   extends App { TemplateControl.runFor(args, Play.play27)                  }
+object RunLagomAll extends App { TemplateControl.runFor(args, Lagom.lagom14, Lagom.lagom15) }
+object RunLagom14  extends App { TemplateControl.runFor(args, Lagom.lagom14)                }
+object RunLagom15  extends App { TemplateControl.runFor(args, Lagom.lagom15)                }
+
+final class TemplateControl(val config: TemplateControlConfig, val githubClient: GithubClient) {
   import TemplateControl._
 
   private def tasks(config: Config): Seq[Task] = {
@@ -144,7 +153,20 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
 object TemplateControl {
   val logger = LoggerFactory.getLogger(TemplateControl.getClass)
 
-  def runFor(project: Project, args: Array[String]): Unit = {
+  def runFor(args: Array[String], projects: Project*): Unit = {
+    val control = create(args)
+
+    for (project <- projects) {
+      val reports =
+        control
+          .run(tempDirectory(config.baseDirectory), project, config.noPush)
+          .map(results => report(config.github.upstream, results))
+
+      Await.result(reports, Duration.Inf)
+    }
+  }
+
+  def create(args: Array[String]) = {
     val config =
       TemplateControlConfig
         .fromTypesafeConfig(ConfigFactory.load())
@@ -155,14 +177,7 @@ object TemplateControl {
     val client = liveGithubClient(config.github)
     //val client = stubGithubClient(config.github)
 
-    val control = new TemplateControl(config, client)
-
-    val reports =
-      control
-        .run(tempDirectory(config.baseDirectory), project, config.noPush)
-        .map(results => report(config.github.upstream, results))
-
-    Await.result(reports, Duration.Inf)
+    new TemplateControl(config, client)
   }
 
   private def liveGithubClient(github: GithubConfig): GithubClient = {
