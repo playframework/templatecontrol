@@ -123,9 +123,7 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
       }
       BranchSuccess(branchName, results)
     } catch {
-      case e: Exception =>
-        e.printStackTrace()
-        BranchFailure(branchName, e)
+      case e: Exception => BranchFailure(branchName, e)
     }
   }
 
@@ -222,6 +220,12 @@ object TemplateControl {
 
   def exceptionToString(sb: StringBuilder, e: Exception): Unit = {
     sb ++= s"    Exception: ${e.getMessage}\n"
+    e.printStackTrace(new java.io.PrintWriter(new java.io.Writer() {
+      override def write(str: String): Unit                  = sb ++= str
+      def write(cbuf: Array[Char], off: Int, len: Int): Unit = write(new String(cbuf, off, len))
+      def flush(): Unit                                      = ()
+      def close(): Unit                                      = ()
+    }))
   }
 
   def tempDirectory(baseDirectory: File): File = {
