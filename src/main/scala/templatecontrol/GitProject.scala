@@ -22,6 +22,7 @@ trait GitProject {
   def branches(): Seq[Ref]
   def createBranch(branchName: String, startPoint: String): Ref
   def checkout(branchName: String): Ref
+  def fastForward(remote: String, branchName: String): MergeResult
   def add(): DirCache
   def commit(message: String): RevCommit
   def branchCreate(branchName: String): Ref

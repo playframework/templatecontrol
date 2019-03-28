@@ -126,6 +126,9 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
       // "git checkout 2.7.x"
       gitRepo.checkout(branchName)
 
+      // Make sure to be at the HEAD of the upstream-tracking branch
+      gitRepo.fastForward("upstream", branchName)
+
       val results = branchFunction(configToTasks(branchConfig.config))
 
       // Did anything change?

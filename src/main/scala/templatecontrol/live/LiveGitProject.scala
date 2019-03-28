@@ -147,6 +147,20 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
     ref
   }
 
+  override def fastForward(remote: String, branchName: String): MergeResult = {
+    val ref = git.getRepository.findRef(s"$remote/$branchName")
+
+    val res = git
+        .merge()
+        .include(ref)
+        .setFastForward(MergeCommand.FastForwardMode.FF_ONLY)
+        .call()
+
+    logger.debug(s"fast-forward: remote = $remote, branchName = $branchName, res = $res")
+
+    res
+  }
+
   override def add(): DirCache = {
     logger.debug(s"add: ")
 
