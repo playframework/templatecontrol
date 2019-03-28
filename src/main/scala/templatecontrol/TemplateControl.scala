@@ -57,6 +57,7 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
   }
 
   def runBranch(project: Project, branchConfig: BranchConfig): Future[Seq[ProjectResult]] = {
+    ensureTempDirectoryExists(config.baseDirectory)
     Future.sequence {
       project.templates.map { tpl =>
         runTemplate(branchConfig, tpl.name)
@@ -73,7 +74,7 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
       branchConfig: BranchConfig,
       templateName: String,
   ): Future[ProjectResult] = Future {
-    val templateDir = tempDirectory(config.baseDirectory) / branchConfig.name / templateName
+    val templateDir = config.baseDirectory / branchConfig.name / templateName
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
         if (config.noPr) {
@@ -290,19 +291,14 @@ object TemplateControl {
     }))
   }
 
-  def tempDirectory(baseDirectory: File): File = {
-    val tempFile: File =
-      if (baseDirectory.isDirectory) baseDirectory
-      else {
-        val perms = PosixFilePermissions.fromString("rwx------")
-        val attrs = PosixFilePermissions.asFileAttribute(perms)
-        Files.createDirectory(baseDirectory.toJava.toPath, attrs)
-      }
-
+  def ensureTempDirectoryExists(dir: File): Unit = {
+    if (!dir.isDirectory) {
+      val perms = PosixFilePermissions.fromString("rwx------")
+      val attrs = PosixFilePermissions.asFileAttribute(perms)
+      Files.createDirectory(dir.toJava.toPath, attrs)
+    }
     // Note this only happens if you don't interrupt or crash the JVM in some way.
-    tempFile.toJava.deleteOnExit()
-
-    tempFile
+    dir.toJava.deleteOnExit()
   }
 
   sealed trait BranchResult { def name: String }
