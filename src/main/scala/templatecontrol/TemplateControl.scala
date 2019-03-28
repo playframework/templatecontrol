@@ -135,8 +135,8 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
 
         if (!config.noPush) {
           // Push the branch to the remote repository
-          // "git push origin 2.7.x"
-          gitRepo.push(branchName)
+          // "git push upstream 2.7.x"
+          gitRepo.push("upstream", branchName)
         }
       }
       BranchSuccess(branchName, results)
@@ -177,7 +177,7 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
         if (!config.noPush) {
           // Push this new branch to the remote repository
           // "git push -f origin templatecontrol-2.7.x"
-          gitRepo.push(localBranchName, force = true)
+          gitRepo.push("origin", localBranchName, force = true)
 
           // And finally, create a pull request
           // from the remote github project ("wsargent/play-streaming-java")

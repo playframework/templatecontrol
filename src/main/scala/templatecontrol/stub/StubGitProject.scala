@@ -17,7 +17,7 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  private val upstreamUrl = upstream.gitHttpTransportUrl
+  private val upstreamUrl = upstream.getSshUrl
 
   private val remoteUrl = remote.getSshUrl
 
@@ -150,8 +150,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
       .call()
   }
 
-  override def push(name: String, force: Boolean): Iterable[PushResult] = {
-    logger.info(s"push: $remote")
+  override def push(remote: String, name: String, force: Boolean): Iterable[PushResult] = {
+    logger.info(s"push: ${this.remote}")
 
     Seq.empty
   }

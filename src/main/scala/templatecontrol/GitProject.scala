@@ -25,7 +25,7 @@ trait GitProject {
   def add(): DirCache
   def commit(message: String): RevCommit
   def branchCreate(branchName: String): Ref
-  def push(name: String, force: Boolean = false): Iterable[PushResult]
+  def push(remote: String, name: String, force: Boolean = false): Iterable[PushResult]
   def status(): Status
   def log(): Iterable[RevCommit]
   def close(): Unit
