@@ -14,6 +14,7 @@ import better.files._
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
+import org.eclipse.jgit.lib.Constants.R_HEADS
 import templatecontrol.live.LiveGithubClient
 import templatecontrol.model.Lagom
 import templatecontrol.model.Play
@@ -115,6 +116,12 @@ final class TemplateControl(val config: TemplateControlConfig, val githubClient:
   ): BranchResult = {
     val branchName: String = branchConfig.name
     try {
+      if (gitRepo.branches().forall(b => b.getName != R_HEADS + branchName)) {
+        // Create a local branch tracking the upstream template's branch.
+        // i.e. "git branch 2.7.x upstream/2.7.x"
+        gitRepo.createBranch(branchName, s"upstream/$branchName")
+      }
+
       // Checkout the target branch:
       // "git checkout 2.7.x"
       gitRepo.checkout(branchName)
