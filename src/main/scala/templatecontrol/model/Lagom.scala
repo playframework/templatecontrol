@@ -1,16 +1,13 @@
 package templatecontrol.model
 
 object Lagom {
-  def lagom14 = Project("Lagom", "1.4.x", templates.diff(templates15).map(mkTemplate))
-  def lagom15 = Project("Lagom", "1.5.x", templates.map(mkTemplate))
-
-  private def mkTemplate(name: String) = Template(name, "lagom")
-
+  def lagom14 = Project("Lagom", "1.4.x", templates.diff(templates15))
+  def lagom15 = Project("Lagom", "1.5.x", templates)
 
   // Keep the templates list in sync with ./scripts/templates-lagom.sh !
 
   // all templates
-  private def templates = Seq(
+  def templates = Seq(
     "lagom-java.g8",
     "lagom-scala.g8",
     "online-auction-java",
@@ -22,16 +19,16 @@ object Lagom {
     "lagom-scala-openshift-smoketests",
     "lagom-java-openshift-smoketests",
     "shopping-cart-scala",
-    "shopping-cart-java"
-  )
+    "shopping-cart-java",
+  ).map(mkTemplate)
 
-  // templates added for Lagom 1.5.x
-  private def templates15 = Seq(
+  // Lagom 1.5.x only templates
+  def templates15 = Seq(
     "lagom-java-grpc-example",
     "lagom-scala-grpc-example",
     "lagom-scala-openshift-smoketests",
     "lagom-java-openshift-smoketests",
-    "shopping-cart-scala",
-    "shopping-cart-java"
-  )
+  ).map(mkTemplate)
+
+  private def mkTemplate(name: String) = Template(name, "lagom")
 }

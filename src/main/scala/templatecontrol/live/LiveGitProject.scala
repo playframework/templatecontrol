@@ -29,7 +29,7 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
   // https://github.com/centic9/jgit-cookbook
   // https://github.com/jenkinsci/github-plugin/blob/master/src/main/java/org/jenkinsci/plugins/github/webhook/WebhookManager.java
 
-  private val upstreamUrl = upstream.gitHttpTransportUrl
+  private val upstreamUrl = upstream.getSshUrl
 
   private val remoteUrl = remote.getSshUrl
 
@@ -147,6 +147,20 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
     ref
   }
 
+  override def fastForward(remote: String, branchName: String): MergeResult = {
+    val ref = git.getRepository.findRef(s"$remote/$branchName")
+
+    val res = git
+        .merge()
+        .include(ref)
+        .setFastForward(MergeCommand.FastForwardMode.FF_ONLY)
+        .call()
+
+    logger.debug(s"fast-forward: remote = $remote, branchName = $branchName, res = $res")
+
+    res
+  }
+
   override def add(): DirCache = {
     logger.debug(s"add: ")
 
@@ -175,14 +189,14 @@ class LiveGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
       .call()
   }
 
-  override def push(name: String, force: Boolean): Iterable[PushResult] = {
+  override def push(remote: String, name: String, force: Boolean): Iterable[PushResult] = {
     logger.debug(s"push: $remote")
 
     val spec = new RefSpec(s"refs/heads/$name:refs/heads/$name")
     val results = git
       .push()
       .setForce(force)
-      .setRemote("origin")
+      .setRemote(remote)
       .setRefSpecs(spec)
       .call()
       .asScala

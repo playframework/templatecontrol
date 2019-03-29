@@ -22,10 +22,11 @@ trait GitProject {
   def branches(): Seq[Ref]
   def createBranch(branchName: String, startPoint: String): Ref
   def checkout(branchName: String): Ref
+  def fastForward(remote: String, branchName: String): MergeResult
   def add(): DirCache
   def commit(message: String): RevCommit
   def branchCreate(branchName: String): Ref
-  def push(name: String, force: Boolean = false): Iterable[PushResult]
+  def push(remote: String, name: String, force: Boolean = false): Iterable[PushResult]
   def status(): Status
   def log(): Iterable[RevCommit]
   def close(): Unit

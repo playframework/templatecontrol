@@ -53,7 +53,7 @@ final class CopyTask(c: Config) extends Task {
   }
 
   def execute(workingDir: File): Seq[TaskResult] = {
-    val repoName = workingDir.path.getFileName.toString
+    val repoName = workingDir.name
     copyConfigs.filter(c => !c.exclude.contains(repoName)).flatMap { c =>
       val source: File = findTemplate(c.template)
       val dest: File   = file"${workingDir.path.toAbsolutePath}${c.path}"

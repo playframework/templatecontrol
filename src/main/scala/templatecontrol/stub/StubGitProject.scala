@@ -17,7 +17,7 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
 
   private val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
 
-  private val upstreamUrl = upstream.gitHttpTransportUrl
+  private val upstreamUrl = upstream.getSshUrl
 
   private val remoteUrl = remote.getSshUrl
 
@@ -122,6 +122,20 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
     ref
   }
 
+  override def fastForward(remote: String, branchName: String): MergeResult = {
+    val ref = git.getRepository.findRef(s"$remote/$branchName")
+
+    val res = git
+        .merge()
+        .include(ref)
+        .setFastForward(MergeCommand.FastForwardMode.FF_ONLY)
+        .call()
+
+    logger.debug(s"fast-forward: remote = $remote, branchName = $branchName, res = $res")
+
+    res
+  }
+
   override def add(): DirCache = {
     logger.debug(s"add: ")
 
@@ -150,8 +164,8 @@ class StubGitProject(workingDir: File, upstream: GHRepository, remote: GHReposit
       .call()
   }
 
-  override def push(name: String, force: Boolean): Iterable[PushResult] = {
-    logger.info(s"push: $remote")
+  override def push(remote: String, name: String, force: Boolean): Iterable[PushResult] = {
+    logger.info(s"push: ${this.remote}")
 
     Seq.empty
   }

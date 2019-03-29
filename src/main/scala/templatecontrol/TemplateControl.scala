@@ -14,83 +14,148 @@ import better.files._
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.slf4j.LoggerFactory
+import org.eclipse.jgit.lib.Constants.R_HEADS
 import templatecontrol.live.LiveGithubClient
+import templatecontrol.model.Lagom
+import templatecontrol.model.Play
 import templatecontrol.model.Project
 import templatecontrol.stub.StubGithubClient
 
-final class TemplateControl(config: TemplateControlConfig, githubClient: GithubClient) {
+object RunPlayAll  extends App { TemplateControl.runFor(args, Play.play26, Play.play27)     }
+object RunPlay26   extends App { TemplateControl.runFor(args, Play.play26)                  }
+object RunPlay27   extends App { TemplateControl.runFor(args, Play.play27)                  }
+object RunLagomAll extends App { TemplateControl.runFor(args, Lagom.lagom14, Lagom.lagom15) }
+object RunLagom14  extends App { TemplateControl.runFor(args, Lagom.lagom14)                }
+object RunLagom15  extends App { TemplateControl.runFor(args, Lagom.lagom15)                }
+
+object RunMergify {
+  def main(args: Array[String]): Unit = {
+    val control0 = TemplateControl.create(args)
+    val config = control0.config.copy(noPr = true)
+    val control = new TemplateControl(config, control0.githubClient)
+
+    val branchConfig = ConfigFactory.parseString(
+      """{ copy = [{ path = "/.mergify.yml", template = ".mergify.yml" }], finders = [] }""",
+    )
+
+    // TODO: Add Lagom, when Mergify knows how to push to lagom
+    // val projects = Seq(Play.play27, Lagom.lagom14, Project("Lagom", "1.5.x", Lagom.templates15))
+    val projects = Seq(Play.play27)
+
+    for (project <- projects) {
+      val results = control.runBranch(project, BranchConfig(project.branchName, branchConfig))
+      control.reportBlocking(results)
+    }
+  }
+}
+
+final class TemplateControl(val config: TemplateControlConfig, val githubClient: GithubClient) {
   import TemplateControl._
 
-  private def tasks(config: Config): Seq[Task] = {
-    Seq(new CopyTask(config), new FindReplaceTask(config))
+  def run(project: Project): Future[Seq[ProjectResult]] = {
+    val branchConfig = config.branchConfigFor(project.branchName)
+    runBranch(project, branchConfig)
   }
 
-  def run(tempDirectory: File, project: Project, noPush: Boolean): Future[Seq[ProjectResult]] = {
+  def runBranch(project: Project, branchConfig: BranchConfig): Future[Seq[ProjectResult]] = {
+    ensureTempDirectoryExists(config.baseDirectory)
     Future.sequence {
       project.templates.map { tpl =>
-        val templateDir: File = tempDirectory / project.branchName / tpl.name
-        createTemplate(templateDir, project.branchName, tpl.name, noPush)
+        runTemplate(branchConfig, tpl.name)
       }
     }
   }
 
-  def createTemplate(
-      templateDir: File,
-      branchName: String,
+  def reportBlocking(results: Future[Seq[ProjectResult]]) = {
+    val future = results.map(results => TemplateControl.report(config.github.upstream, results))
+    Await.result(future, Duration.Inf)
+  }
+
+  private def runTemplate(
+      branchConfig: BranchConfig,
       templateName: String,
-      noPush: Boolean,
   ): Future[ProjectResult] = Future {
+    val templateDir = config.baseDirectory / branchConfig.name / templateName
     blocking {
       projectControl(templateDir, templateName) { gitProject =>
-        config.branchConfigs
-        // only apply for the given branch
-          .filter(branchConfig => branchConfig.name == branchName)
-          .map { branchConfig =>
-            branchControl(branchConfig, gitProject, noPush) { t =>
-              t.flatMap(_.execute(templateDir))
-            }
+        if (config.noPr) {
+          push(branchConfig, gitProject) { tasks =>
+            tasks.flatMap(_.execute(templateDir))
           }
+        } else {
+          pr(branchConfig, gitProject) { tasks =>
+            tasks.flatMap(_.execute(templateDir))
+          }
+        }
       }
     }
-  }
-
-  private def generateMessage(results: Seq[TaskResult]): String = {
-    val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}")
-    sb ++= "\n"
-    results.foreach { result =>
-      sb ++= s"  ${result.config.path}:\n"
-      sb ++= s"    ${result.modified}\n"
-    }
-    sb.toString
   }
 
   private def projectControl(templateDir: File, templateName: String)(
-      branchFunction: GitProject => Seq[BranchResult],
+      branchFunction: GitProject => BranchResult,
   ): ProjectResult = {
-
     logger.info(s"template dir: $templateDir")
+
     if (templateDir.exists) {
       templateDir.delete()
     }
 
-    // Clone a git repo for this template.
-    val gitRepo = githubClient.clone(templateDir, templateName)
+    val gitRepo = githubClient.clone(templateDir, templateName) // Clone this template's repo.
     try {
-      // Make sure we have all the branches from remote.
-      gitRepo.fetch()
-
-      val results = branchFunction(gitRepo)
-      ProjectSuccess(templateName, results)
+      gitRepo.fetch() // Make sure we have all the branches from remote.
+      ProjectSuccess(templateName, branchFunction(gitRepo))
     } catch {
-      case e: Exception =>
-        ProjectFailure(templateName, e)
+      case e: Exception => ProjectFailure(templateName, e)
     } finally {
-      // close the repo to stop file descriptors from leaking.
-      gitRepo.close()
+      gitRepo.close() // close the repo to stop file descriptors from leaking.
     }
   }
 
-  private def branchControl(branchConfig: BranchConfig, gitRepo: GitProject, noPush: Boolean)(
+  private def push(branchConfig: BranchConfig, gitRepo: GitProject)(
+      branchFunction: (Seq[Task]) => Seq[TaskResult],
+  ): BranchResult = {
+    val branchName: String = branchConfig.name
+    try {
+      if (gitRepo.branches().forall(b => b.getName != R_HEADS + branchName)) {
+        // Create a local branch tracking the upstream template's branch.
+        // i.e. "git branch 2.7.x upstream/2.7.x"
+        gitRepo.createBranch(branchName, s"upstream/$branchName")
+      }
+
+      // Checkout the target branch:
+      // "git checkout 2.7.x"
+      gitRepo.checkout(branchName)
+
+      // Make sure to be at the HEAD of the upstream-tracking branch
+      gitRepo.fastForward("upstream", branchName)
+
+      val results = branchFunction(configToTasks(branchConfig.config))
+
+      // Did anything change?
+      if (!gitRepo.status().isClean) {
+        // If so, add the changes to the branch...
+        // "git add ."
+        gitRepo.add()
+
+        val message = generateMessage(results)
+
+        // Commit the added changes...
+        // "git commit -m $message"
+        gitRepo.commit(message)
+
+        if (!config.noPush) {
+          // Push the branch to the remote repository
+          // "git push upstream 2.7.x"
+          gitRepo.push("upstream", branchName)
+        }
+      }
+      BranchSuccess(branchName, results)
+    } catch {
+      case e: Exception => BranchFailure(branchName, e)
+    }
+  }
+
+  private def pr(branchConfig: BranchConfig, gitRepo: GitProject)(
       branchFunction: (Seq[Task]) => Seq[TaskResult],
   ): BranchResult = {
     val branchName: String = branchConfig.name
@@ -105,8 +170,7 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
       // "git checkout templatecontrol-2.7.x"
       gitRepo.checkout(localBranchName)
 
-      val results = branchFunction(tasks(branchConfig.config))
-      val message = generateMessage(results)
+      val results = branchFunction(configToTasks(branchConfig.config))
 
       // Did anything change?
       if (!gitRepo.status().isClean) {
@@ -114,14 +178,16 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
         // "git add ."
         gitRepo.add()
 
+        val message = generateMessage(results)
+
         // Commit the added changes...
         // "git commit -m $message"
         gitRepo.commit(message)
 
-        if (!noPush) {
+        if (!config.noPush) {
           // Push this new branch to the remote repository
           // "git push -f origin templatecontrol-2.7.x"
-          gitRepo.push(localBranchName, force = true)
+          gitRepo.push("origin", localBranchName, force = true)
 
           // And finally, create a pull request
           // from the remote github project ("wsargent/play-streaming-java")
@@ -134,35 +200,48 @@ final class TemplateControl(config: TemplateControlConfig, githubClient: GithubC
       }
       BranchSuccess(branchName, results)
     } catch {
-      case e: Exception =>
-        e.printStackTrace()
-        BranchFailure(branchName, e)
+      case e: Exception => BranchFailure(branchName, e)
     }
+  }
+
+  private def configToTasks(config: Config): Seq[Task] = {
+    Seq(new CopyTask(config), new FindReplaceTask(config))
+  }
+
+  private def generateMessage(results: Seq[TaskResult]): String = {
+    val sb = new StringBuilder(s"Updated with template-control on ${Instant.now()}\n")
+    results.foreach { result =>
+      sb ++= s"  ${result.config.path}:\n"
+      sb ++= s"    ${result.modified}\n"
+    }
+    sb.result()
   }
 }
 
 object TemplateControl {
   val logger = LoggerFactory.getLogger(TemplateControl.getClass)
 
-  def runFor(project: Project, args: Array[String]): Unit = {
+  def runFor(args: Array[String], projects: Project*): Unit = {
+    val control = create(args)
+    for (project <- projects) {
+      val results = control.run(project)
+      control.reportBlocking(results)
+    }
+  }
+
+  def create(args: Array[String]) = {
     val config =
       TemplateControlConfig
         .fromTypesafeConfig(ConfigFactory.load())
         .copy(noPush = args.contains("--no-push") || args.contains("--dry-run"))
 
     logger.info("running dry-run: " + config.noPush)
+    logger.info(s"base dir: ${config.baseDirectory}")
 
     val client = liveGithubClient(config.github)
     //val client = stubGithubClient(config.github)
 
-    val control = new TemplateControl(config, client)
-
-    val reports =
-      control
-        .run(tempDirectory(config.baseDirectory), project, config.noPush)
-        .map(results => report(config.github.upstream, results))
-
-    Await.result(reports, Duration.Inf)
+    new TemplateControl(config, client)
   }
 
   private def liveGithubClient(github: GithubConfig): GithubClient = {
@@ -183,55 +262,53 @@ object TemplateControl {
 
   def report(upstream: String, results: Seq[ProjectResult]): Unit = {
     val s = results.map {
-      case ProjectSuccess(name, branches) =>
+      case ProjectSuccess(name, branch) =>
         val sb = new StringBuilder
-        branches.foreach {
-          case BranchSuccess(branch, replacements) if replacements.nonEmpty =>
-            sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
-            replacements.foreach {
-              case TaskResult(finder, modified) =>
-                sb ++= s"    ${finder.path}:\n"
-                sb ++= s"       $modified\n"
+        branch match {
+          case BranchSuccess(branch, replacements) =>
+            if (replacements.nonEmpty) {
+              sb ++= s"https://github.com/$upstream/$name/tree/$branch - replacements = ${replacements.length}\n"
+              replacements.foreach {
+                case TaskResult(finder, modified) =>
+                  sb ++= s"    ${finder.path}:\n"
+                  sb ++= s"       $modified\n"
+              }
             }
           case BranchFailure(branch, e) =>
             sb ++= s"https://github.com/$upstream/$name/tree/$branch - FAILURE\n"
             exceptionToString(sb, e)
-            sb.append("\n")
-          case _ =>
-          // do nothing
+            sb += '\n'
         }
         sb.toString()
 
       case ProjectFailure(name, e) =>
         val sb = new StringBuilder(s"$name: FAILURE\n")
         exceptionToString(sb, e)
-        sb.append("\n")
-        sb.toString
+        sb += '\n'
+        sb.result()
 
     }
     println(s.mkString(""))
   }
 
   def exceptionToString(sb: StringBuilder, e: Exception): Unit = {
-    sb.append("    Exception: ")
-    sb.append(e.getMessage)
-    sb.append("\n")
-    //val errors = new java.io.StringWriter()
-    //e.printStackTrace(new java.io.PrintWriter(errors))
+    sb ++= s"    Exception: ${e.getMessage}\n"
+    e.printStackTrace(new java.io.PrintWriter(new java.io.Writer() {
+      override def write(str: String): Unit                  = sb ++= str
+      def write(cbuf: Array[Char], off: Int, len: Int): Unit = write(new String(cbuf, off, len))
+      def flush(): Unit                                      = ()
+      def close(): Unit                                      = ()
+    }))
   }
 
-  def tempDirectory(baseDirectory: File): File = {
-    val perms = PosixFilePermissions.fromString("rwx------")
-    val attrs = PosixFilePermissions.asFileAttribute(perms)
-
-    logger.info(s"base dir: $baseDirectory")
-    val tempFile: File =
-      if (!baseDirectory.isDirectory) Files.createDirectory(baseDirectory.toJava.toPath, attrs)
-      else baseDirectory
-
+  def ensureTempDirectoryExists(dir: File): Unit = {
+    if (!dir.isDirectory) {
+      val perms = PosixFilePermissions.fromString("rwx------")
+      val attrs = PosixFilePermissions.asFileAttribute(perms)
+      Files.createDirectory(dir.toJava.toPath, attrs)
+    }
     // Note this only happens if you don't interrupt or crash the JVM in some way.
-    tempFile.toJava.deleteOnExit()
-    tempFile
+    dir.toJava.deleteOnExit()
   }
 
   sealed trait BranchResult { def name: String }
@@ -239,7 +316,7 @@ object TemplateControl {
   final case class BranchFailure(name: String, exception: Exception)     extends BranchResult
 
   sealed trait ProjectResult { def name: String }
-  final case class ProjectFailure(name: String, exception: Exception)       extends ProjectResult
-  final case class ProjectSuccess(name: String, results: Seq[BranchResult]) extends ProjectResult
+  final case class ProjectFailure(name: String, exception: Exception)  extends ProjectResult
+  final case class ProjectSuccess(name: String, results: BranchResult) extends ProjectResult
 
 }

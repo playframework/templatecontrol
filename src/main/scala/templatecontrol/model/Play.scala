@@ -3,12 +3,10 @@ package templatecontrol.model
 // Keep the templates list in sync with ./scripts/templates-play.sh !
 
 object Play {
-  def play26 = Project("Play", "2.6.x", templates.diff(templates27).map(mkTemplate))
-  def play27 = Project("Play", "2.7.x", templates.map(mkTemplate))
+  def play26 = Project("Play", "2.6.x", templates.diff(templates27))
+  def play27 = Project("Play", "2.7.x", templates)
 
-  private def mkTemplate(name: String) = Template(name, "playframework")
-
-  private def templates = Seq(
+  def templates = Seq(
     "play-java-seed.g8",
     "play-java-starter-example",
     "play-java-hello-world-tutorial",
@@ -42,10 +40,12 @@ object Play {
     "play-scala-tls-example",
     "play-scala-websocket-example",
     "play-webgoat",
-  )
+  ).map(mkTemplate)
 
-  private def templates27 = Seq(
+  def templates27 = Seq(
     "play-scala-grpc-example",
     "play-java-grpc-example",
-  )
+  ).map(mkTemplate)
+
+  private def mkTemplate(name: String) = Template(name, "playframework")
 }

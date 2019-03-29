@@ -15,7 +15,7 @@ Because this is new, it is still up to a human to identify the pull request as p
 
 ### Hub
 
-You need to have Hub installed, see <https://hub.github.com/>.
+You need to have `hub` installed, see <https://hub.github.com/>.
 
 ### Project forks
 
